@@ -23,7 +23,8 @@ Item* ItemBuffer::front() const { return q.empty() ? nullptr : q.front(); }
 bool ItemBuffer::isEmpty() const { return q.empty(); }
 int ItemBuffer::getSize() const { return q.size(); }
 
-Machine::Machine(int time, string initStatus) : processingTime(time), status(initStatus),currentWorkTime(0),hp(100) {}
+Machine::Machine(int time, string initStatus, string machineName)
+    : processingTime(time), status(initStatus), currentWorkTime(0), hp(100), name(machineName) {}
 
 Machine::~Machine() {
     if(currentItem) delete currentItem;
@@ -41,19 +42,56 @@ int Machine::getQueueSize() const {
     return inputBuffer.getSize();
 }
 
+string Machine::getStatus() const {
+    return status;
+}
+
+int Machine::getProgress() const {
+    return currentWorkTime;
+}
+
+int Machine::getProcessingTime() const {
+    return processingTime;
+}
+
+string Machine::getName() const {
+    return name;
+}
 
 void Machine::repair(){
     hp = 100; 
     status = (currentItem != nullptr) ? "WORKING" : "IDLE";}
 
+void Machine::forceBreak()
+{
+    hp = 0;
+    status = "BROKEN";
+}
+
+void Machine::setRandomBreakdownMode(bool enabled)
+{
+    randomBreakdownMode = enabled;
+}
+
 int Machine::gethp() const{return hp;}
 
-void Machine::decreasedhp(){
-    if (rand() % 100 < breakdownChance()) {
-        int damage = (rand() % 2) + 1;
+void Machine::decreasedhp()
+{
+    int chance = randomBreakdownMode ? breakdownChance() * 3 : breakdownChance();
+    int maxDamage = randomBreakdownMode ? 8 : 2;
+
+    if (rand() % 100 < chance)
+    {
+        int damage = (rand() % maxDamage) + 1;
         hp -= damage;
+
+        if (hp < 0)
+        {
+            hp = 0;
+        }
     }
 }
+
 void Machine::breakdown(){
     if(hp <= 0){
         hp = 0;
