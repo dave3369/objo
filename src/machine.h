@@ -27,22 +27,31 @@ class Machine{
     int hp;
     int processingTime;
     int currentWorkTime;
+    string name;
 
     Item* currentItem = nullptr;
     Machine* nextMachine = nullptr;
+
+    bool randomBreakdownMode = false;
 
     private:
     ItemBuffer inputBuffer;
 
     public:
-    Machine(int time, string initStatus);
+    Machine(int time, string initStatus, string machineName);
     virtual ~Machine();
 
     void setNextMachine(Machine *next);
     void receiveItem(Item* item);
     int getQueueSize() const;
+    string getStatus() const;
+    int getProgress() const;
+    int getProcessingTime() const;
+    string getName() const;
 
     void repair();
+    void forceBreak();
+    void setRandomBreakdownMode(bool enabled);
     int gethp() const;
     void decreasedhp();
     void breakdown();
@@ -55,7 +64,7 @@ class Machine{
 
 class Ultrafilteration :public Machine{
     public:
-    Ultrafilteration(int time, string initStatus) : Machine(time, initStatus) {}
+    Ultrafilteration(int time, string initStatus) : Machine(time, initStatus, "Ultrafiltration") {}
     void process() override ;
     int breakdownChance() const override;
    
@@ -63,7 +72,7 @@ class Ultrafilteration :public Machine{
 
 class Dryer :public Machine{
     public:
-    Dryer(int time, string initStatus) : Machine(time, initStatus) {}
+    Dryer(int time, string initStatus) : Machine(time, initStatus, "Dryer") {}
     void process() override ;
     int breakdownChance() const override;
     
@@ -71,7 +80,7 @@ class Dryer :public Machine{
 
 class Packaging :public Machine{
     public:
-   Packaging(int time, string initStatus) : Machine(time, initStatus) {}
+    Packaging(int time, string initStatus) : Machine(time, initStatus, "Packaging") {}
     void process() override ;
     int breakdownChance() const override;
   
