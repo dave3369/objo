@@ -54,6 +54,14 @@ int Machine::getProcessingTime() const {
     return processingTime;
 }
 
+bool Machine::hasCurrentItem() const {
+    return currentItem != nullptr;
+}
+
+bool Machine::didCompleteThisTick() const {
+    return completedThisTick;
+}
+
 string Machine::getName() const {
     return name;
 }
@@ -98,7 +106,10 @@ void Machine::breakdown(){
         status = "BROKEN";
     }
 }
+
 void Machine::update() {
+    completedThisTick = false;
+
     if (status == "BROKEN") return;
 
     // 1. 공통 고장 판정
@@ -128,6 +139,7 @@ void Machine::update() {
                 nextMachine->receiveItem(currentItem); // 다음 기계로 전달
             } else {
                 // 파이프라인의 끝 (완제품 처리 로직 추가 가능)
+		completedThisTick = true;
                 delete currentItem; 
             }
             currentItem = nullptr;
@@ -188,8 +200,32 @@ void FactorySimulation::start() {
 }
 
 void FactorySimulation::runTick() {
+    int beforeBroken = 0;
+
+    for (Machine* m : machines) {
+        if (m->getStatus() == "BROKEN") {
+            beforeBroken++;
+        }
+    }
+
     for (Machine* m : machines) {
         m->update();
+
+        if (m->didCompleteThisTick()) {
+            finishedGoods++;
+        }
+    }
+
+    int afterBroken = 0;
+
+    for (Machine* m : machines) {
+        if (m->getStatus() == "BROKEN") {
+            afterBroken++;
+        }
+    }
+
+    if (afterBroken > beforeBroken) {
+        totalBreakdowns += afterBroken - beforeBroken;
     }
 }
 

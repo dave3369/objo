@@ -33,6 +33,7 @@ class Machine{
     Machine* nextMachine = nullptr;
 
     bool randomBreakdownMode = false;
+    bool completedThisTick = false;
 
     private:
     ItemBuffer inputBuffer;
@@ -47,6 +48,8 @@ class Machine{
     string getStatus() const;
     int getProgress() const;
     int getProcessingTime() const;
+    bool hasCurrentItem() const;
+    bool didCompleteThisTick() const;
     string getName() const;
 
     void repair();
@@ -89,9 +92,13 @@ class Packaging :public Machine{
 class FactorySimulation{
     private:
     vector <Machine*> machines;
+    int finishedGoods = 0;
+    int totalBreakdowns = 0;
     public:
     ~FactorySimulation();
     void start();
     void runTick();
     const vector<Machine*>& getMachines() const { return machines; };
+    int getFinishedGoods() const { return finishedGoods; }
+    int getTotalBreakdowns() const { return totalBreakdowns; }
 };

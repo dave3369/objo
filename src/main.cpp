@@ -4,6 +4,7 @@
 
 #include <SDL.h>
 #include <SDL_opengl.h>
+#include <deque>
 
 #include "machine.h"
 
@@ -42,10 +43,13 @@ int main(int argc, char* argv[])
     bool simulationRunning = false;
     int tick = 0;
     int speed = 1;
+    int lastFinishedGoods = 0;
     int selectedMachineIndex = 0;
 
     int selectedScenario = 0;
     const char* scenarios[] = { "Normal Flow", "Random Breakdowns" };
+    std::deque<std::string> eventLogs;
+    bool resetRequested = false;
 
     double lastTickTime = ImGui::GetTime();
 
@@ -73,13 +77,23 @@ int main(int argc, char* argv[])
         {
             sim->runTick();
             tick++;
+
+	    if (sim->getFinishedGoods() > lastFinishedGoods)
+    	    {
+        	eventLogs.push_front(
+            	"[Tick " + std::to_string(tick) +
+            	"] Finished goods completed"
+        	);
+
+        	lastFinishedGoods = sim->getFinishedGoods();
+    	    }
+
             lastTickTime = currentTime;
         }
 
         // =========================
         // UI
         // =========================
-	const auto& machines = sim->getMachines();
 
         ImGui::Begin("Factory Simulation Control");
 
@@ -100,20 +114,9 @@ int main(int argc, char* argv[])
         ImGui::SameLine();
 
         if (ImGui::Button("Reset"))
-        {
-            delete sim;
-            sim = new FactorySimulation();
-            sim->start();
-
-	    for (Machine* machine : sim->getMachines())
-	    {
-    		machine->setRandomBreakdownMode(selectedScenario == 1);
-	    }
-
-            tick = 0;
-            simulationRunning = false;
-            lastTickTime = ImGui::GetTime();
-        }
+	{
+    	    resetRequested = true;
+	}
 
         ImGui::SliderInt("Speed", &speed, 1, 5);
 
@@ -124,12 +127,37 @@ int main(int argc, char* argv[])
 
 	bool randomMode = (selectedScenario == 1);
 
-	for (Machine* machine : machines)
+	for (Machine* machine : sim->getMachines())
 	{
     	    machine->setRandomBreakdownMode(randomMode);
 	}
 
-        ImGui::End();
+	ImGui::End();
+
+	if (resetRequested)
+	{
+    	    delete sim;
+
+	    sim = new FactorySimulation();
+    	    sim->start();
+
+    	    tick = 0;
+    	    simulationRunning = false;
+    	    selectedMachineIndex = 0;
+	    lastFinishedGoods = 0;
+    	    lastTickTime = ImGui::GetTime();
+
+	    for (Machine* machine : sim->getMachines())
+    	    {
+        	machine->setRandomBreakdownMode(selectedScenario == 1);
+    	    }
+
+    	    eventLogs.push_front("[Tick 0] Simulation reset");
+
+    	    resetRequested = false;
+	}
+
+	const auto& machines = sim->getMachines();
 
         ImGui::Begin("Factory Floor");
 
@@ -213,17 +241,68 @@ int main(int argc, char* argv[])
 	    ImGui::Separator();
 
     	    if (ImGui::Button("Force Break"))
-    	    {
-        	selectedMachine->forceBreak();
-    	    }
+	    {
+    		selectedMachine->forceBreak();
+
+    		eventLogs.push_front(
+        	    "[Tick " + std::to_string(tick) + "] "
+        	    + selectedMachine->getName() + " was force broken"
+    		);
+	    }
 
     	    ImGui::SameLine();
 
 	    if (ImGui::Button("Instant Repair"))
+	    {
+    		selectedMachine->repair();
+
+	        eventLogs.push_front(
+        	    "[Tick " + std::to_string(tick) + "] "
+        	    + selectedMachine->getName() + " was repaired"
+    		);
+	    }
+	}
+
+	ImGui::End();
+
+	ImGui::Begin("Event Log");
+
+	if (ImGui::Button("Clear Log"))
+	{
+    	    eventLogs.clear();
+	}
+
+	ImGui::Separator();
+
+	ImGui::BeginChild("LogScroll", ImVec2(0, 150), true);
+
+	for (const std::string& log : eventLogs)
+	{
+	    ImGui::Text("%s", log.c_str());
+	}
+
+	ImGui::EndChild();
+
+	ImGui::End();
+
+	ImGui::Begin("Statistics");
+
+	int wipCount = 0;
+
+	for (Machine* machine : machines)
+	{
+    	    wipCount += machine->getQueueSize();
+
+    	    if (machine->hasCurrentItem())
     	    {
-        	selectedMachine->repair();
+        	wipCount++;
     	    }
 	}
+
+	ImGui::Text("Finished Goods: %d", sim->getFinishedGoods());
+	ImGui::Text("WIP Count: %d", wipCount);
+	ImGui::Text("Total Breakdowns: %d", sim->getTotalBreakdowns());
+	ImGui::Text("Lost Products: %d", 0);
 
 	ImGui::End();
 
