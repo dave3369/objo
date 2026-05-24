@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
     int selectedMachineIndex = 0;
 
     int selectedScenario = 0;
-    const char* scenarios[] = { "Normal Flow", "Random Breakdowns" };
+    const char* scenarios[] = { "Normal Flow", "Bottleneck", "Random Breakdowns", "Overflow" };
     std::deque<std::string> eventLogs;
     bool resetRequested = false;
 
@@ -125,13 +125,39 @@ int main(int argc, char* argv[])
              scenarios,
              IM_ARRAYSIZE(scenarios));
 
-	bool randomMode = (selectedScenario == 1);
+    for (Machine* machine : sim->getMachines())
+    {
+        if (selectedScenario == 2) { 
+            machine->setRandomBreakdownMode(true);
+        } else {
+            machine->setRandomBreakdownMode(false);
+        }
+        
+    }
 
-	for (Machine* machine : sim->getMachines())
-	{
-    	    machine->setRandomBreakdownMode(randomMode);
-	}
+    ImGui::End();
 
+    // 2. 리셋 버튼 눌렀을 때 로직
+    if (resetRequested)
+    {
+        delete sim;
+        sim = new FactorySimulation();
+        sim->start();
+
+        tick = 0;
+        simulationRunning = false;
+        selectedMachineIndex = 0;
+        lastFinishedGoods = 0;
+        lastTickTime = ImGui::GetTime();
+
+        for (Machine* machine : sim->getMachines())
+        {
+            machine->setRandomBreakdownMode(selectedScenario == 2);
+        }
+
+        eventLogs.push_front("[Tick 0] Simulation reset");
+        resetRequested = false;
+    }
 	ImGui::End();
 
 	if (resetRequested)
