@@ -125,19 +125,29 @@ int main(int argc, char* argv[])
              scenarios,
              IM_ARRAYSIZE(scenarios));
 
+    // UI에서 선택한 시나리오를 기계에 실시간 적용
     for (Machine* machine : sim->getMachines())
     {
-        if (selectedScenario == 2) { 
+        if (selectedScenario == 1) { // 1번: Bottleneck
+            machine->setProcessingTime(12); 
+            machine->setRandomBreakdownMode(false);
+        } 
+        else if (selectedScenario == 2) { // 2번: Breakdowns
+            machine->setProcessingTime(5); 
             machine->setRandomBreakdownMode(true);
-        } else {
+        } 
+        else if (selectedScenario == 3) { // 3번: Overflow
+            machine->setProcessingTime(10); 
             machine->setRandomBreakdownMode(false);
         }
-        
+        else { // 0번: Normal
+            machine->setProcessingTime(3); 
+            machine->setRandomBreakdownMode(false);
+        }
     }
 
     ImGui::End();
 
-    // 2. 리셋 버튼 눌렀을 때 로직
     if (resetRequested)
     {
         delete sim;
@@ -152,36 +162,21 @@ int main(int argc, char* argv[])
 
         for (Machine* machine : sim->getMachines())
         {
+            // 2번(Random Breakdowns)일 때만 고장 모드 ON
             machine->setRandomBreakdownMode(selectedScenario == 2);
+            
+            // 시나리오 1(Bottleneck)일 때 기계 속도 강제 변경
+            if (selectedScenario == 1) {
+                machine->setProcessingTime(12);
+            } else {
+                machine->setProcessingTime(3); // 정상 속도로 복구
+            }
         }
 
         eventLogs.push_front("[Tick 0] Simulation reset");
         resetRequested = false;
     }
 	ImGui::End();
-
-	if (resetRequested)
-	{
-    	    delete sim;
-
-	    sim = new FactorySimulation();
-    	    sim->start();
-
-    	    tick = 0;
-    	    simulationRunning = false;
-    	    selectedMachineIndex = 0;
-	    lastFinishedGoods = 0;
-    	    lastTickTime = ImGui::GetTime();
-
-	    for (Machine* machine : sim->getMachines())
-    	    {
-        	machine->setRandomBreakdownMode(selectedScenario == 1);
-    	    }
-
-    	    eventLogs.push_front("[Tick 0] Simulation reset");
-
-    	    resetRequested = false;
-	}
 
 	const auto& machines = sim->getMachines();
 
