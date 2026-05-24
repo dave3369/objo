@@ -47,7 +47,7 @@ int main(int argc, char* argv[])
     int selectedMachineIndex = 0;
 
     int selectedScenario = 0;
-    const char* scenarios[] = { "Normal Flow", "Bottleneck", "Random Breakdowns", "Overflow" };
+    const char* scenarios[] = { "Normal Flow", "Random Breakdowns" };
     std::deque<std::string> eventLogs;
     bool resetRequested = false;
 
@@ -78,15 +78,14 @@ int main(int argc, char* argv[])
             sim->runTick();
             tick++;
 
-	    if (sim->getFinishedGoods() > lastFinishedGoods)
-    	    {
-        	eventLogs.push_front(
-            	"[Tick " + std::to_string(tick) +
-            	"] Finished goods completed"
-        	);
-
-        	lastFinishedGoods = sim->getFinishedGoods();
-    	    }
+            if (sim->getFinishedGoods() > lastFinishedGoods)
+            {
+                eventLogs.push_front(
+                    "[Tick " + std::to_string(tick) +
+                    "] Finished goods completed"
+                );
+                lastFinishedGoods = sim->getFinishedGoods();
+            }
 
             lastTickTime = currentTime;
         }
@@ -94,7 +93,6 @@ int main(int argc, char* argv[])
         // =========================
         // UI
         // =========================
-
         ImGui::Begin("Factory Simulation Control");
 
         ImGui::Text("Current Tick: %d", tick);
@@ -114,218 +112,181 @@ int main(int argc, char* argv[])
         ImGui::SameLine();
 
         if (ImGui::Button("Reset"))
-	{
-    	    resetRequested = true;
-	}
+        {
+            resetRequested = true;
+        }
 
         ImGui::SliderInt("Speed", &speed, 1, 5);
 
-	ImGui::Combo("Scenario",
-             &selectedScenario,
-             scenarios,
-             IM_ARRAYSIZE(scenarios));
+        ImGui::Combo("Scenario",
+                     &selectedScenario,
+                     scenarios,
+                     IM_ARRAYSIZE(scenarios));
 
-    // UI에서 선택한 시나리오를 기계에 실시간 적용
-    for (Machine* machine : sim->getMachines())
-    {
-        if (selectedScenario == 1) { // 1번: Bottleneck
-            machine->setProcessingTime(12); 
-            machine->setRandomBreakdownMode(false);
-        } 
-        else if (selectedScenario == 2) { // 2번: Breakdowns
-            machine->setProcessingTime(5); 
-            machine->setRandomBreakdownMode(true);
-        } 
-        else if (selectedScenario == 3) { // 3번: Overflow
-            machine->setProcessingTime(10); 
-            machine->setRandomBreakdownMode(false);
-        }
-        else { // 0번: Normal
-            machine->setProcessingTime(3); 
-            machine->setRandomBreakdownMode(false);
-        }
-    }
-
-    ImGui::End();
-
-    if (resetRequested)
-    {
-        delete sim;
-        sim = new FactorySimulation();
-        sim->start();
-
-        tick = 0;
-        simulationRunning = false;
-        selectedMachineIndex = 0;
-        lastFinishedGoods = 0;
-        lastTickTime = ImGui::GetTime();
+        bool randomMode = (selectedScenario == 1);
 
         for (Machine* machine : sim->getMachines())
         {
-            // 2번(Random Breakdowns)일 때만 고장 모드 ON
-            machine->setRandomBreakdownMode(selectedScenario == 2);
-            
-            // 시나리오 1(Bottleneck)일 때 기계 속도 강제 변경
-            if (selectedScenario == 1) {
-                machine->setProcessingTime(12);
-            } else {
-                machine->setProcessingTime(3); // 정상 속도로 복구
+            machine->setRandomBreakdownMode(randomMode);
+        }
+
+        ImGui::End();
+
+        if (resetRequested)
+        {
+            delete sim;
+
+            sim = new FactorySimulation();
+            sim->start();
+
+            tick = 0;
+            simulationRunning = false;
+            selectedMachineIndex = 0;
+            lastFinishedGoods = 0;
+            lastTickTime = ImGui::GetTime();
+
+            for (Machine* machine : sim->getMachines())
+            {
+                machine->setRandomBreakdownMode(selectedScenario == 1);
+            }
+
+            eventLogs.push_front("[Tick 0] Simulation reset");
+            resetRequested = false;
+        }
+
+        const auto& machines = sim->getMachines();
+
+        ImGui::Begin("Factory Floor");
+        ImGui::Text("Machines (click to inspect)");
+        ImGui::Separator();
+
+        for (int i = 0; i < machines.size(); i++)
+        {
+            Machine* machine = machines[i];
+            bool selected = (selectedMachineIndex == i);
+
+            if (ImGui::Selectable(machine->getName().c_str(), selected))
+            {
+                selectedMachineIndex = i;
+            }
+
+            ImGui::SameLine();
+
+            if (machine->getStatus() == "WORKING")
+            {
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "WORKING");
+            }
+            else if (machine->getStatus() == "BROKEN")
+            {
+                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "BROKEN");
+            }
+            else
+            {
+                ImGui::Text("%s", machine->getStatus().c_str());
+            }
+        }
+        ImGui::End();
+
+        ImGui::Begin("Inspector");
+
+        if (!machines.empty())
+        {
+            Machine* selectedMachine = machines[selectedMachineIndex];
+
+            ImGui::Text("Selected Machine: %s", selectedMachine->getName().c_str());
+            ImGui::Separator();
+
+            if (selectedMachine->getStatus() == "WORKING")
+            {
+                ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f),
+                                   "Status: %s",
+                                   selectedMachine->getStatus().c_str());
+            }
+            else if (selectedMachine->getStatus() == "BROKEN")
+            {
+                ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f),
+                                   "Status: %s",
+                                   selectedMachine->getStatus().c_str());
+            }
+            else
+            {
+                ImGui::Text("Status: %s", selectedMachine->getStatus().c_str());
+            }
+
+            ImGui::Text("HP: %d", selectedMachine->gethp());
+            ImGui::ProgressBar(selectedMachine->gethp() / 100.0f, ImVec2(220, 20));
+
+            float workProgress = 0.0f;
+            if (selectedMachine->getProcessingTime() > 0)
+            {
+                workProgress = (float)selectedMachine->getProgress() /
+                               selectedMachine->getProcessingTime();
+            }
+
+            ImGui::Text("Progress: %d / %d",
+                        selectedMachine->getProgress(),
+                        selectedMachine->getProcessingTime());
+
+            ImGui::ProgressBar(workProgress, ImVec2(220, 20));
+
+            ImGui::Text("Queue Size: %d", selectedMachine->getQueueSize());
+            ImGui::Text("Process Time: %d", selectedMachine->getProcessingTime());
+
+            ImGui::Separator();
+
+            if (ImGui::Button("Force Break"))
+            {
+                selectedMachine->forceBreak();
+                eventLogs.push_front(
+                    "[Tick " + std::to_string(tick) + "] "
+                    + selectedMachine->getName() + " was force broken"
+                );
+            }
+
+            ImGui::SameLine();
+
+            if (ImGui::Button("Instant Repair"))
+            {
+                selectedMachine->repair();
+                eventLogs.push_front(
+                    "[Tick " + std::to_string(tick) + "] "
+                    + selectedMachine->getName() + " was repaired"
+                );
+            }
+        }
+        ImGui::End();
+
+        ImGui::Begin("Event Log");
+        if (ImGui::Button("Clear Log"))
+        {
+            eventLogs.clear();
+        }
+        ImGui::Separator();
+
+        ImGui::BeginChild("LogScroll", ImVec2(0, 150), true);
+        for (const std::string& log : eventLogs)
+        {
+            ImGui::Text("%s", log.c_str());
+        }
+        ImGui::EndChild();
+        ImGui::End();
+
+        ImGui::Begin("Statistics");
+        int wipCount = 0;
+        for (Machine* machine : machines)
+        {
+            wipCount += machine->getQueueSize();
+            if (machine->hasCurrentItem())
+            {
+                wipCount++;
             }
         }
 
-        eventLogs.push_front("[Tick 0] Simulation reset");
-        resetRequested = false;
-    }
-	ImGui::End();
-
-	const auto& machines = sim->getMachines();
-
-        ImGui::Begin("Factory Floor");
-
-        ImGui::Text("Machines (click to inspect)");
-	ImGui::Separator();
-
-	for (int i = 0; i < machines.size(); i++)
-	{
-    	Machine* machine = machines[i];
-
-    	bool selected = (selectedMachineIndex == i);
-
-    	if (ImGui::Selectable(machine->getName().c_str(), selected))
-    	{
-        	selectedMachineIndex = i;
-    	}
-
-	    ImGui::SameLine();
-
-	    if (machine->getStatus() == "WORKING")
-    	{
-        	ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "WORKING");
-    	}
-    	else if (machine->getStatus() == "BROKEN")
-    	{
-        	ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f), "BROKEN");
-    	}
-	    else
-    	{
-        	ImGui::Text("%s", machine->getStatus().c_str());
-    	}
-	}
-
-	ImGui::End();
-
-	ImGui::Begin("Inspector");
-
-	if (!machines.empty())
-	{
-	    Machine* selectedMachine = machines[selectedMachineIndex];
-
-	    ImGui::Text("Selected Machine: %s", selectedMachine->getName().c_str());
-    	    ImGui::Separator();
-
-    	    if (selectedMachine->getStatus() == "WORKING")
-    	    {
-        	ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f),
-                	           "Status: %s",
-                        	   selectedMachine->getStatus().c_str());
-    	    }
-    	    else if (selectedMachine->getStatus() == "BROKEN")
-    	    {
-        	ImGui::TextColored(ImVec4(1.0f, 0.0f, 0.0f, 1.0f),
-                	           "Status: %s",
-                        	   selectedMachine->getStatus().c_str());
-    	    }
-    	    else
-    	    {
-        	ImGui::Text("Status: %s", selectedMachine->getStatus().c_str());
-    	    }
-
-    	    ImGui::Text("HP: %d", selectedMachine->gethp());
-    	    ImGui::ProgressBar(selectedMachine->gethp() / 100.0f, ImVec2(220, 20));
-
-    	    float workProgress = 0.0f;
-    	    if (selectedMachine->getProcessingTime() > 0)
-    	    {
-        	workProgress = (float)selectedMachine->getProgress() /
-                	       selectedMachine->getProcessingTime();
-    	    }
-
-    	    ImGui::Text("Progress: %d / %d",
-            	        selectedMachine->getProgress(),
-                	selectedMachine->getProcessingTime());
-
-	    ImGui::ProgressBar(workProgress, ImVec2(220, 20));
-
-	    ImGui::Text("Queue Size: %d", selectedMachine->getQueueSize());
-    	    ImGui::Text("Process Time: %d", selectedMachine->getProcessingTime());
-
-	    ImGui::Separator();
-
-    	    if (ImGui::Button("Force Break"))
-	    {
-    		selectedMachine->forceBreak();
-
-    		eventLogs.push_front(
-        	    "[Tick " + std::to_string(tick) + "] "
-        	    + selectedMachine->getName() + " was force broken"
-    		);
-	    }
-
-    	    ImGui::SameLine();
-
-	    if (ImGui::Button("Instant Repair"))
-	    {
-    		selectedMachine->repair();
-
-	        eventLogs.push_front(
-        	    "[Tick " + std::to_string(tick) + "] "
-        	    + selectedMachine->getName() + " was repaired"
-    		);
-	    }
-	}
-
-	ImGui::End();
-
-	ImGui::Begin("Event Log");
-
-	if (ImGui::Button("Clear Log"))
-	{
-    	    eventLogs.clear();
-	}
-
-	ImGui::Separator();
-
-	ImGui::BeginChild("LogScroll", ImVec2(0, 150), true);
-
-	for (const std::string& log : eventLogs)
-	{
-	    ImGui::Text("%s", log.c_str());
-	}
-
-	ImGui::EndChild();
-
-	ImGui::End();
-
-	ImGui::Begin("Statistics");
-
-	int wipCount = 0;
-
-	for (Machine* machine : machines)
-	{
-    	    wipCount += machine->getQueueSize();
-
-    	    if (machine->hasCurrentItem())
-    	    {
-        	wipCount++;
-    	    }
-	}
-
-	ImGui::Text("Finished Goods: %d", sim->getFinishedGoods());
-	ImGui::Text("WIP Count: %d", wipCount);
-	ImGui::Text("Total Breakdowns: %d", sim->getTotalBreakdowns());
-	ImGui::Text("Lost Products: %d", 0);
-
-	ImGui::End();
+        ImGui::Text("Finished Goods: %d", sim->getFinishedGoods());
+        ImGui::Text("WIP Count: %d", wipCount);
+        ImGui::Text("Total Breakdowns: %d", sim->getTotalBreakdowns());
+        ImGui::Text("Lost Products: %d", 0);
+        ImGui::End();
 
         ImGui::Render();
 
