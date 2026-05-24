@@ -51,7 +51,6 @@ class Machine{
     bool hasCurrentItem() const;
     bool didCompleteThisTick() const;
     string getName() const;
-    void setProcessingTime(int time);
 
     void repair();
     void forceBreak();
