@@ -229,6 +229,10 @@ void FactorySimulation::runTick() {
     }
 }
 
+void Machine::setProcessingTime(int time) {
+    processingTime = time;
+}
+
 
 
 
