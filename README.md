@@ -1,8 +1,8 @@
-# 🏭 WPC (Whey Protein Concentrate) Factory Simulation
+#  WPC (Whey Protein Concentrate) Factory Simulation
 
 OOP with C++ | GIST EECS
 
-## 📌 1. Project Overview
+##  1. Project Overview
 
 이 프로젝트는 C++ 기반의 객체지향 프로그래밍(OOP)을 활용하여 구현된 대화형 공장 자동화 시뮬레이션이다. 유청 단백질(WPC) 제조 공정을 주제로 선정하였으며, 사용자는 Dear ImGui로 구축된 직관적인 GUI를 통해 공정의 흐름과 기계의 상태를 실시간으로 제어하고 모니터링할 수 있다.
 
@@ -10,22 +10,22 @@ OOP with C++ | GIST EECS
 
 ---
 
-## 🧬 2. Core OOP Architecture (Design Justification)
+##  2. Core OOP Architecture (Design Justification)
 
-### 🔹 Polymorphism & Hierarchy
+### 1)  Polymorphism & Hierarchy
 - 기저 클래스인 Machine을 추상 클래스로 정의하고, 공통 동작인 update()를 Template MEthod Pattern으로 구현했다. 메인 시뮬레이션 루프 (FactorySimulation::runTick()) 내에서는 각 기계의 구체적인 타입 (Ultrafiltration, Dryer, Packaging)을 식별하기 위한 어떤 if/else 분기나 dynamic_cast 없이 단일 기저 클래스 포인터 배열 (vector<Machine*>)을 순회하며 m->update()를 다형적으로 호출한다.
 
-### 🔹 Open-Closed Principle)
+### 2) Open-Closed Principle)
 - 새로운 공정기계를 추가할 때 오직 Machine의 클래스를 상속받아 새로운 서브클래스를 정의하고 구체적인 공정 로직 (process())와 고장 확률(breakdownChance())만 오버라이딩하면 된다. 메인 루프나 ImGui UI 파이프라인 코드는 추상화된 Machine 인터페이스에만 의존하기 때문에 백엔드 핵심 엔진과 UI 코드를 완전히 보존한 상태로 무한한 기능 확장이 가능하다.
 
-### 🔹 Strict Encapsulation
+### 3) Strict Encapsulation
 - Machine 클래스 및 모든 시뮬레이션 관련 클래스의 멤버 변수(status, hp, processingTime, inputBuffer 등)는 private 또는 서브클래스 접근을 위한 protected로 제한되어 있습니다. 코드 리뷰어가 접근할 수 있는 public 데이터 멤버는 0개입니다. 상태 변화는 오직 캡슐화된 인터페이스 메서드(receiveItem(), repair(), forceBreak())를 통해서만 엄격하게 유도되므로 무결성이 보장됩니다.
 
-### 🔹 UI & Backend Decoupling
+### 4) UI & Backend Decoupling
 - 백엔드 코어 클래스들(Machine, ItemBuffer 등) 내부에는 Dear ImGui 관련 헤더나 UI 의존성이 단 한 줄도 포함되어 있지 않습니다. 대신 MachineController 구조를 도입하여 UI 레이어가 백엔드 도메인 객체의 상태를 직접 오염시키지 못하도록 차단했습니다. 오직 최상위 진입점인 main.cpp만이 양방향을 인지하며 , UI 버튼 클릭 이벤트를 정제된 상태 가상화 메서드로 변환해 백엔드 엔진의 타이밍 규칙에 맞게 안전하게 전달합니다.
 
 
-## 🏭 3. Factory Domain Scenario
+##  3. Factory Domain Scenario
 
 시뮬레이션은 3단계의 핵심 파이프라인을 거쳐 액상 유청을 완제품 분말로 가공합니다. 각각의 기계는 고유한 처리 시간과 고장 확률을 가집니다.
 
@@ -45,7 +45,7 @@ OOP with C++ | GIST EECS
 
 ---
 
-## 🎮 4. Simulation Scenarios
+##  4. Simulation Scenarios
 
 런타임 중 ImGui 드롭다운 메뉴를 통해 다음 시나리오들을 실시간으로 전환할 수 있습니다.
 
@@ -60,7 +60,7 @@ OOP with C++ | GIST EECS
 
 ---
 
-## 🖥️ 5. ImGui User Interface
+##  5. ImGui User Interface
 
 요구사항에 맞추어 다음의 5가지 핵심 패널을 구현했습니다.
 
@@ -85,7 +85,7 @@ OOP with C++ | GIST EECS
 
 ---
 
-## 🚀 6. How to Build & Run
+##  6. How to Build & Run
 
 1. 본 리포지토리를 Clone 합니다.
 2. CMake를 이용하여 빌드 환경을 구성합니다. (ImGui, SDL2, OpenGL3 연동 필요)
