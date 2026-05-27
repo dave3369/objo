@@ -234,5 +234,3 @@ void FactorySimulation::runTick() {
 
 
 
-
-
