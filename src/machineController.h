@@ -1,53 +1,47 @@
 #pragma once
 #include "machine.h"
-#include <vector>
 #include <string>
 
 class MachineController {
 private:
-    Machine& m_machine;
-public:
-    MachineController(Machine& machine) : m_machine(machine) {}
-
-    std::string getName() const { return m_machine.getName(); }
-    std::string getStatus() const { return m_machine.getStatus(); }
-    int getHp() const { return m_machine.gethp(); }
-    int getQueueSize() const { return m_machine.getQueueSize(); }
-    int getProgress() const { return m_machine.getProgress(); }
-    int getProcessingTime() const { return m_machine.getProcessingTime(); }
-    
-    void onRepairClicked() { m_machine.repair(); }
-    void onForceBreakClicked() { m_machine.forceBreak(); }
-
-};
-
-class FactoryController {
-private:
-    FactorySimulation& m_sim;
-    std::vector<MachineController> m_machineControllers;
+    Machine& machine;
 
 public:
-    FactoryController(FactorySimulation& sim) : m_sim(sim) {
-       
-        for (Machine* machine : m_sim.getMachines()) {
-            m_machineControllers.push_back(MachineController(*machine));
-        }
+    MachineController(Machine& m) : machine(m) {}
+
+    std::string getName() const {
+        return machine.getName();
     }
 
-    int getFinishedGoods() const { return m_sim.getFinishedGoods(); }
-    int getTotalBreakdowns() const { return m_sim.getTotalBreakdowns(); }
-    
-   
-    std::vector<MachineController>& getMachineControllers() { 
-        return m_machineControllers; 
+    std::string getStatus() const {
+        return machine.getStatus();
     }
 
-    void remapControllers() {
-        m_machineControllers.clear();
-        for (Machine* machine : m_sim.getMachines()) {
-            m_machineControllers.push_back(MachineController(*machine));
-        }
+    int getHp() const {
+        return machine.gethp();
     }
-    int getLastFinishedGoods() const { return m_sim.getFinishedGoods(); }
-   
+
+    int getQueueSize() const {
+        return machine.getQueueSize();
+    }
+
+    int getProgress() const {
+        return machine.getProgress();
+    }
+
+    int getProcessingTime() const {
+        return machine.getProcessingTime();
+    }
+
+    bool hasCurrentItem() const {
+        return machine.hasCurrentItem();
+    }
+
+    void repair() {
+        machine.repair();
+    }
+
+    void forceBreak() {
+        machine.forceBreak();
+    }
 };

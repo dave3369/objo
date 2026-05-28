@@ -8,7 +8,8 @@
 
 #include "machine.h"
 #include "machineController.h"
-#include "view.h"
+#include "FactoryView.h"
+
 int main(int argc, char* argv[])
 {
     SDL_Init(SDL_INIT_VIDEO);
@@ -41,20 +42,23 @@ int main(int argc, char* argv[])
     FactorySimulation* sim = new FactorySimulation();
     sim->start();
 
-    // 2. 컨트롤러 및 뷰 생성
-    // (리셋 시 재할당을 쉽게 하기 위해 컨트롤러도 포인터로 생성합니다)
-    FactoryController* factoryCtrl = new FactoryController(*sim);
-    SimulationView view;
+    FactoryView view;
 
-    // main에 남아있어야 할 변수는 시간 측정과 틱 카운트뿐입니다.
+    bool simulationRunning = false;
     int tick = 0;
+    int speed = 1;
+    int lastFinishedGoods = 0;
+    int selectedMachineIndex = 0;
+
+    int selectedScenario = 0;
+    const char* scenarios[] = { "Normal Flow", "Random Breakdowns" };
+    std::deque<std::string> eventLogs;
+    bool resetRequested = false;
+
     double lastTickTime = ImGui::GetTime();
 
     while (running)
     {
-        // =========================
-        // 1. SDL 이벤트 처리 (사용자 입력 및 창 닫기)
-        // =========================
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
@@ -63,84 +67,98 @@ int main(int argc, char* argv[])
                 running = false;
         }
 
-        // =========================
-        // 2. ImGui 새 프레임 시작
-        // =========================
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
 
         // =========================
-        // 3. 리셋(Reset) 처리
-        // View에서 리셋 버튼이 눌렸다면 모델과 컨트롤러를 초기화합니다.
-        // =========================
-        if (view.isResetRequested())
-        {
-            delete factoryCtrl;
-            delete sim;
-
-            sim = new FactorySimulation();
-            sim->start();
-            factoryCtrl = new FactoryController(*sim);
-
-            tick = 0;
-            lastTickTime = ImGui::GetTime();
-            
-            view.setSimulationRunning(false);
-            view.getLastFinishedGoods() = 0;
-            view.getEventLogs().push_front("[Tick 0] Simulation reset");
-            view.clearResetRequest();
-        }
-
-        // =========================
-        // 4. 모델(Simulation) 업데이트
+        // Simulation update
         // =========================
         double currentTime = ImGui::GetTime();
-        double interval = 1.0 / view.getSpeed();
+        double interval = 1.0 / speed;
 
-        // View에서 선택한 시나리오(랜덤 고장 모드)를 모델에 반영
-        bool randomMode = (view.getSelectedScenario() == 1);
-        for (Machine* machine : sim->getMachines())
-        {
-            machine->setRandomBreakdownMode(randomMode);
-        }
-
-        // 시뮬레이션이 실행 중이고, 지정된 속도(interval)만큼 시간이 지났다면 Tick 실행
-        if (view.isSimulationRunning() && (currentTime - lastTickTime >= interval))
+        if (simulationRunning && currentTime - lastTickTime >= interval)
         {
             sim->runTick();
             tick++;
 
-            // 완제품 생산 감지 및 로그 추가
-            if (sim->getFinishedGoods() > view.getLastFinishedGoods())
-            {
-                view.getEventLogs().push_front(
-                    "[Tick " + std::to_string(tick) + "] Finished goods completed"
-                );
-                view.getLastFinishedGoods() = sim->getFinishedGoods();
-            }
+	    if (sim->getFinishedGoods() > lastFinishedGoods)
+    	    {
+        	eventLogs.push_front(
+            	"[Tick " + std::to_string(tick) +
+            	"] Finished goods completed"
+        	);
+
+        	lastFinishedGoods = sim->getFinishedGoods();
+    	    }
 
             lastTickTime = currentTime;
         }
 
         // =========================
-        // 5. UI 렌더링 (View 호출)
-        // 화면을 그리는 복잡한 로직은 모두 View 객체에 위임합니다.
+        // UI
         // =========================
-        view.render(*factoryCtrl, tick);
 
-        // =========================
-        // 6. OpenGL 화면 출력 (버퍼 스왑)
-        // =========================
+const auto& machines = sim->getMachines();
+
+view.renderControl(
+    simulationRunning,
+    resetRequested,
+    tick,
+    speed,
+    selectedScenario,
+    scenarios,
+    IM_ARRAYSIZE(scenarios)
+);
+
+if (resetRequested)
+{
+    delete sim;
+
+    sim = new FactorySimulation();
+    sim->start();
+
+    tick = 0;
+    simulationRunning = false;
+    selectedMachineIndex = 0;
+    lastFinishedGoods = 0;
+    lastTickTime = ImGui::GetTime();
+
+    for (Machine* machine : sim->getMachines())
+    {
+        machine->setRandomBreakdownMode(selectedScenario == 1);
+    }
+
+    eventLogs.push_front("[Tick 0] Simulation reset");
+
+    resetRequested = false;
+}
+
+const auto& updatedMachines = sim->getMachines();
+
+bool randomMode = (selectedScenario == 1);
+for (Machine* machine : updatedMachines)
+{
+    machine->setRandomBreakdownMode(randomMode);
+}
+
+view.renderFactoryFloor(updatedMachines, selectedMachineIndex);
+view.renderInspector(updatedMachines, selectedMachineIndex, tick, eventLogs);
+view.renderEventLog(eventLogs);
+view.renderStatistics(sim, updatedMachines);
+
+
         ImGui::Render();
-        glViewport(0, 0, (int)ImGui::GetIO().DisplaySize.x, (int)ImGui::GetIO().DisplaySize.y);
+
+        glViewport(0, 0, 1000, 700);
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
 
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
     }
-	delete sim;
+
+    delete sim;
 
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
