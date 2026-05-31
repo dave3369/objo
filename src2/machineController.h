@@ -9,6 +9,10 @@ private:
 public:
     MachineController(Machine& m) : machine(m) {}
 
+    std::string getCurrentItemName() const {
+        return machine.getCurrentItemName();
+    }
+    
     std::string getName() const {
         return machine.getName();
     }

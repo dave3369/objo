@@ -101,6 +101,10 @@ public:
     Machine(int time, std::string initStatus, std::string machineName)
         : processingTime(time), status(initStatus), name(machineName), hp(100) {}
     virtual ~Machine() = default;
+    std::string getCurrentItemName() const {
+        if (currentItem) return currentItem->getName();
+        return "None";
+    }
 
     std::string getInfo() const override { return name; }
     

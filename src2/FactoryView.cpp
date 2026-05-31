@@ -97,6 +97,7 @@ void FactoryView::renderInspector(
         }
 
         ImGui::Text("HP: %d", controller.getHp());
+        ImGui::Text("Current Item: %s", controller.getCurrentItemName().c_str());
         ImGui::ProgressBar(controller.getHp() / 100.0f, ImVec2(330, 20));
 
         float workProgress = 0.0f;
