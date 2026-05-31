@@ -1,7 +1,8 @@
 #include "FactoryView.h"
-#include "machineController.h"
+#include "machineController.h" 
 #include "imgui.h"
 
+// 1. (생략했었던 기존 코드 복구) Control 렌더링
 void FactoryView::renderControl(
     bool& simulationRunning,
     bool& resetRequested,
@@ -31,8 +32,9 @@ void FactoryView::renderControl(
     ImGui::End();
 }
 
+// 2. (의존성 제거됨) Factory Floor 렌더링
 void FactoryView::renderFactoryFloor(
-    const std::vector<Machine*>& machines,
+    const std::vector<MachineController>& controllers,
     int& selectedMachineIndex
 ) {
     ImGui::SetNextWindowPos(ImVec2(490, 60), ImGuiCond_Once);
@@ -43,8 +45,9 @@ void FactoryView::renderFactoryFloor(
     ImGui::Text("Machines (click to inspect)");
     ImGui::Separator();
 
-    for (int i = 0; i < machines.size(); i++) {
-        MachineController controller(*machines[i]);
+    for (int i = 0; i < controllers.size(); i++) {
+        // 외부에서 받아온 컨트롤러를 그대로 사용
+        const MachineController& controller = controllers[i];
 
         bool selected = (selectedMachineIndex == i);
 
@@ -66,8 +69,9 @@ void FactoryView::renderFactoryFloor(
     ImGui::End();
 }
 
+// 3. (의존성 제거됨) Inspector 렌더링
 void FactoryView::renderInspector(
-    const std::vector<Machine*>& machines,
+    const std::vector<MachineController>& controllers,
     int selectedMachineIndex,
     int tick,
     std::deque<std::string>& eventLogs
@@ -77,8 +81,8 @@ void FactoryView::renderInspector(
 
     ImGui::Begin("Inspector");
 
-    if (!machines.empty()) {
-        MachineController controller(*machines[selectedMachineIndex]);
+    if (!controllers.empty() && selectedMachineIndex < controllers.size()) {
+        MachineController controller = controllers[selectedMachineIndex];
 
         ImGui::Text("Selected Machine: %s", controller.getName().c_str());
         ImGui::Separator();
@@ -129,6 +133,7 @@ void FactoryView::renderInspector(
     ImGui::End();
 }
 
+// 4. (생략했었던 기존 코드 복구) Event Log 렌더링
 void FactoryView::renderEventLog(std::deque<std::string>& eventLogs) {
     ImGui::SetNextWindowPos(ImVec2(860, 60), ImGuiCond_Once);
     ImGui::SetNextWindowSize(ImVec2(490, 320), ImGuiCond_Once);
@@ -152,9 +157,11 @@ void FactoryView::renderEventLog(std::deque<std::string>& eventLogs) {
     ImGui::End();
 }
 
+// 5. (의존성 제거됨) Statistics 렌더링
 void FactoryView::renderStatistics(
-    FactorySimulation* sim,
-    const std::vector<Machine*>& machines
+    int finishedGoods,
+    int totalBreakdowns,
+    const std::vector<MachineController>& controllers
 ) {
     ImGui::SetNextWindowPos(ImVec2(860, 430), ImGuiCond_Once);
     ImGui::SetNextWindowSize(ImVec2(230, 150), ImGuiCond_Once);
@@ -162,18 +169,17 @@ void FactoryView::renderStatistics(
     ImGui::Begin("Statistics");
 
     int wipCount = 0;
+    for (const MachineController& controller : controllers) {
+        wipCount += controller.getQueueSize();
 
-    for (Machine* machine : machines) {
-        wipCount += machine->getQueueSize();
-
-        if (machine->hasCurrentItem()) {
+        if (controller.hasCurrentItem()) {
             wipCount++;
         }
     }
 
-    ImGui::Text("Finished Goods: %d", sim->getFinishedGoods());
+    ImGui::Text("Finished Goods: %d", finishedGoods);
     ImGui::Text("WIP Count: %d", wipCount);
-    ImGui::Text("Total Breakdowns: %d", sim->getTotalBreakdowns());
+    ImGui::Text("Total Breakdowns: %d", totalBreakdowns);
     ImGui::Text("Lost Products: %d", 0);
 
     ImGui::End();

@@ -101,6 +101,11 @@ int main(int argc, char* argv[])
 
 const auto& machines = sim->getMachines();
 
+std::vector<MachineController> controllers;
+for (Machine* machine : machines) {
+    controllers.emplace_back(*machine); 
+}
+
 view.renderControl(
     simulationRunning,
     resetRequested,
@@ -142,11 +147,11 @@ for (Machine* machine : updatedMachines)
     machine->setRandomBreakdownMode(randomMode);
 }
 
-view.renderFactoryFloor(updatedMachines, selectedMachineIndex);
-view.renderInspector(updatedMachines, selectedMachineIndex, tick, eventLogs);
+view.renderFactoryFloor(controllers, selectedMachineIndex);
+view.renderInspector(controllers, selectedMachineIndex, tick, eventLogs);
 view.renderEventLog(eventLogs);
-view.renderStatistics(sim, updatedMachines);
 
+view.renderStatistics(sim->getFinishedGoods(), sim->getTotalBreakdowns(), controllers);
 
         ImGui::Render();
 
