@@ -30,9 +30,12 @@ This simulation is fundamentally architected around the four core principles of 
 
 To ensure maximum scalability and compliance with the OCP, we implemented several advanced design patterns:
 
-### 1) **Observer Pattern (Event System):** An `IObserver` interface was introduced. The `SimulationLogger` subscribes to machines, which broadcast decoupled notifications (`notifyObservers("BREAKDOWN")`) without knowing how the logs are rendered.
-### 2) **Singleton & Strategy (RecipeManager):** To completely decouple machine logic from specific products, we introduced a `RecipeManager`. It registers functional transformation rules (`TransformerFunc`) at runtime. Machines no longer hardcode output types; they simply request a transformation (`transformItem()`).
-### 3) **Builder Pattern (Pipeline Construction):** The `FactoryBuilder` provides a fluent interface (`addUltrafiltration(3).addDryer(7)...`) to dynamically construct, link (`setNextMachine`), and inject the machine pipeline into the simulation without modifying the core engine.
+### 1) **Observer Pattern (Event System):** 
+An `IObserver` interface was introduced. The `SimulationLogger` subscribes to machines, which broadcast decoupled notifications (`notifyObservers("BREAKDOWN")`) without knowing how the logs are rendered.
+### 2) **Singleton & Strategy (RecipeManager):** 
+To completely decouple machine logic from specific products, we introduced a `RecipeManager`. It registers functional transformation rules (`TransformerFunc`) at runtime. Machines no longer hardcode output types; they simply request a transformation (`transformItem()`).
+### 3) **Builder Pattern (Pipeline Construction):** 
+The `FactoryBuilder` provides a fluent interface (`addUltrafiltration(3).addDryer(7)...`) to dynamically construct, link (`setNextMachine`), and inject the machine pipeline into the simulation without modifying the core engine.
 
 ---
 
@@ -61,18 +64,25 @@ The simulation processes `Raw Milk` into a finished `WPC Powder` product through
 
 Users can switch between the following scenarios in real-time via the ImGui dropdown menu:
 
-### 1) **Normal Flow:** The pipeline runs at its default speed. Due to the differences in processing times (3 -> 7 -> 2), users can observe a realistic bottleneck where WIP (Work-In-Progress) accumulates in front of the Dryer.
-### 2) **Random Breakdowns:** The dynamic breakdown probability activates. Machines take damage every tick they operate and eventually shut down (`status = "Broken"`), forcing the operator to manually intervene and observe queue overflows.
+### 1) **Normal Flow:** 
+The pipeline runs at its default speed. Due to the differences in processing times (3 -> 7 -> 2), users can observe a realistic bottleneck where WIP (Work-In-Progress) accumulates in front of the Dryer.
+### 2) **Random Breakdowns:** 
+The dynamic breakdown probability activates. Machines take damage every tick they operate and eventually shut down (`status = "Broken"`), forcing the operator to manually intervene and observe queue overflows.
 
 ---
 
 ## 6. ImGui User Interface Features
 
-### 1) **Simulation Control:** Start, Pause, Reset buttons; Speed slider (1x-5x); Scenario selector dropdown.
-### 2) **Factory Floor:** Displays real-time status (WORKING, BROKEN, IDLE) of all machines using color-coded text via `MachineController`.
-### 3) **Inspector:** Displays detailed machine telemetry (HP bar, Progress bar, Current Item, Queue Size). Administrators can intervene using **Force Break** and **Instant Repair** buttons.
-### 4) **Event Log:** Powered by the Observer pattern, it records all state changes and repairs with timestamps in a scrollable view.
-- **Statistics:** Real-time tracking of Finished Goods, WIP count, and Total Breakdowns.
+### 1) **Simulation Control:** 
+Start, Pause, Reset buttons; Speed slider (1x-5x); Scenario selector dropdown.
+### 2) **Factory Floor:** 
+Displays real-time status (WORKING, BROKEN, IDLE) of all machines using color-coded text via `MachineController`.
+### 3) **Inspector:** 
+Displays detailed machine telemetry (HP bar, Progress bar, Current Item, Queue Size). Administrators can intervene using **Force Break** and **Instant Repair** buttons.
+### 4) **Event Log:** 
+Powered by the Observer pattern, it records all state changes and repairs with timestamps in a scrollable view.
+### 5) **Statistics:** 
+Real-time tracking of Finished Goods, WIP count, and Total Breakdowns.
 
 ---
 
