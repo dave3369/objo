@@ -1,74 +1,194 @@
-#  WPC (Whey Protein Concentrate) Factory Simulation
+# WPC (Whey Protein Concentrate) Factory Simulation
 
 OOP with C++ | GIST EECS
 
-##  1. Project Overview
+## 1. Project Overview
 
-This project is an interactive factory automation simulation implemented using C++ Object-Oriented Programming (OOP). We selected the Whey Protein Concentrate (WPC) manufacturing process as our target domain. Through an intuitive GUI built with Dear ImGui, users can control and monitor the production flow and the real-time status of the machines.
+This project is an interactive factory automation simulation implemented using modern C++ Object-Oriented Programming (OOP). We selected the Whey Protein Concentrate (WPC) manufacturing process as our target domain. Through an intuitive GUI built with Dear ImGui, users can control and monitor the production flow and the real-time status of the machines.
 
-This simulation is fundamentally architected around the four core principles of OOP: abstraction, encapsulation, inheritance, and polymorphism. As a result, it ensures high maintainability and scalability, even within a complex and highly interactive system.
+This simulation is fundamentally architected around the four core principles of OOP (Abstraction, Encapsulation, Inheritance, Polymorphism) and strictly adheres to the **Open-Closed Principle (OCP)**. By completely decoupling the UI from the backend business logic and utilizing advanced design patterns, it ensures high memory safety, maintainability, and scalability within a highly interactive system.
 
 ---
 
-##  2. Core OOP Architecture (Design Justification)
+## 2. Core OOP Architecture (Design Justification)
 
-### 1)  Polymorphism & Hierarchy
-- The base class Machine is defined as an abstract class, and the common behavior update() is implemented using the Template Method Pattern. Within the main simulation loop (FactorySimulation::runTick()), the system iterates over an array of base class pointers (vector<Machine*>) and polymorphically calls m->update(), completely without the need for any if/else branching or dynamic_cast to identify the concrete type of each machine (Ultrafiltration, Dryer, Packaging).
+### 1) Polymorphism & Abstract Hierarchy
+- The base class `Machine` inherits from `SimulationObject`. The main simulation loop (`FactorySimulation::runTick()`) iterates over an array of base class smart pointers (`std::unique_ptr<Machine>`) and polymorphically calls `m->update(tick)`. The system operates entirely without the need for `if/else` branching or `dynamic_cast` to identify the concrete type of each machine (`Ultrafilteration`, `Dryer`, `Packaging`).
 
-### 2) Open-Closed Principle)
-- When adding a new processing machine, you only need to define a new subclass that inherits from the Machine class and override the specific process logic (process()) and breakdown probability (breakdownChance()). Since both the main loop and the ImGui UI pipeline code rely exclusively on the abstracted Machine interface, the system allows for limitless functional expansion while completely preserving the core backend engine and UI code.
+### 2) Strict Encapsulation
+- Internal state variables of the `Machine` and `ItemBuffer` classes (such as `status`, `hp`, `processingTime`, and queues) are strictly restricted to `private` or `protected`. There are exactly **zero public data members** accessible to a code reviewer. State changes are strictly driven through encapsulated interface methods ensuring complete data integrity.
 
-### 3) Strict Encapsulation
-- The member variables of the Machine class and all simulation-related classes (such as status, hp, processingTime, and inputBuffer) are restricted to private or protected for subclass access. There are exactly zero public data members accessible to a code reviewer. State changes are strictly driven only through encapsulated interface methods (such as receiveItem(), repair(), and forceBreak()), ensuring complete data integrity.
+### 3) Memory Safety (Modern C++)
+- The entire pipeline and inventory system were refactored using `std::unique_ptr`. The `ItemBuffer` safely moves `unique_ptr<Product>`, preventing any memory leaks during high-speed simulations, forced breakdowns, or pipeline resets. 
 
-### 4) UI & Backend Decoupling
-- The backend core classes (such as Machine and ItemBuffer) do not contain a single line of Dear ImGui-related headers or UI dependencies. Instead, the MachineController structure was introduced to prevent the UI layer from directly corrupting the state of the backend domain objects. Only the top-level entry point, main.cpp, is aware of both sides. It converts UI button click events into refined, abstracted methods and safely delivers them in accordance with the timing rules of the backend engine.
+### 4) UI & Backend Decoupling (MVC Approach)
+- The backend core classes do not contain a single line of Dear ImGui-related headers. The UI strictly reads data through the `MachineController` wrapper and the `SimulationLogger`. The top-level entry point (`main.cpp`) bridges the two sides, securely transforming UI button clicks into abstracted backend commands.
 
-##  3. Factory Domain Scenario
+---
 
-The simulation processes liquid whey into a finished powder product through a core three-stage pipeline. Each machine has its own unique processing time and breakdown probability.
+## 3. Advanced Design Patterns
 
-### 1) Ultrafiltration 
-* **Role:** Filters out water and lactose from the liquid whey to concentrate the protein (Processing time: 3 Ticks).
-* **Feature:** Prone to intermittent breakdowns due to filter aging (Breakdown probability: 10%).
+To ensure maximum scalability and compliance with the OCP, we implemented several advanced design patterns:
 
-### 2) Spray Dryer - Bottleneck
+* **Observer Pattern (Event System):** An `IObserver` interface was introduced. The `SimulationLogger` subscribes to machines, which broadcast decoupled notifications (`notifyObservers("BREAKDOWN")`) without knowing how the logs are rendered.
+* **Singleton & Strategy (RecipeManager):** To completely decouple machine logic from specific products, we introduced a `RecipeManager`. It registers functional transformation rules (`TransformerFunc`) at runtime. Machines no longer hardcode output types; they simply request a transformation (`transformItem()`).
+* **Builder Pattern (Pipeline Construction):** The `FactoryBuilder` provides a fluent interface (`addUltrafiltration(3).addDryer(7)...`) to dynamically construct, link (`setNextMachine`), and inject the machine pipeline into the simulation without modifying the core engine.
+
+---
+
+## 4. Factory Domain Scenario
+
+The simulation processes `Raw Milk` into a finished `WPC Powder` product through a three-stage pipeline.
+
+### 1) Ultrafiltration (Stage 1)
+* **Input/Output:** Raw Milk -> Liquid Whey
+* **Role:** Filters out water and lactose to concentrate the protein (Processing time: 3 Ticks).
+* **Feature:** Prone to intermittent breakdowns (Breakdown probability: 5%).
+
+### 2) Spray Dryer - Bottleneck (Stage 2)
+* **Input/Output:** Liquid Whey -> WPC Powder
 * **Role:** Sprays hot air onto the concentrate to convert it into powder (Processing time: 7 Ticks).
-* **Feature:** Has the longest processing time, inducing a natural bottleneck. It also has the highest breakdown probability (20%) due to temperature sensor issues.
+* **Feature:** Induces a natural bottleneck due to the longest processing time. It has the highest breakdown probability (12%) due to temperature sensor wear.
 
-### 3) Packaging 
-* **Role:** Seals the protein powder into 2kg containers (Processing time: 2 Ticks).
-* **Feature:** Has the fastest processing speed and does not break down (Breakdown probability: 0%).
-
----
-
-##  4. Simulation Scenarios
-
-During runtime, you can switch between the following scenarios in real-time using the ImGui dropdown menu.
-
-1) Normal Flow : The pipeline runs at its default speed. Due to the differences in processing times between each machine (3 -> 7 -> 2), you can observe a realistic bottleneck where a queue of raw materials builds up in front of the second stage (the Dryer).
- 
-2) Random Breakdowns : The breakdown probability and the damage taken by the machines increase significantly. In this extreme environment, machines shut down in a chain reaction, allowing you to observe how the work-in-progress (WIP) accumulates and causes an overflow.
+### 3) Packaging (Stage 3)
+* **Input/Output:** WPC Powder -> (Finished Good)
+* **Role:** Seals the powder into commercial containers (Processing time: 2 Ticks).
+* **Feature:** The fastest and most stable process (Breakdown probability: 3%).
 
 ---
 
-##  5. ImGui User Interface
+## 5. Simulation Scenarios
 
-1) Simulation Control: Provides Start, Pause, and Reset buttons, a simulation speed slider (1x-5x), a scenario selector, and a live Tick counter.
+Users can switch between the following scenarios in real-time via the ImGui dropdown menu:
 
-2) Factory Floor: Displays the current state of all machines in the process (WORKING, BROKEN, IDLE) at a glance using color-coded text.
-
-3) Inspector: Clicking on a specific machine displays detailed information including its health bar, progress bar, and queue depth. Administrators can directly intervene using the Force Break and Instant Repair buttons.
-
-4) Event Log: Records all events—such as machine state changes, repairs, and forced breakdowns—along with timestamps (Ticks) in a scrollable window (includes a Clear Log function).
-
-5) Statistics: Tracks and aggregates the number of finished goods, the current work-in-progress (WIP) count, and total breakdowns in real-time.
+1) **Normal Flow:** The pipeline runs at its default speed. Due to the differences in processing times (3 -> 7 -> 2), users can observe a realistic bottleneck where WIP (Work-In-Progress) accumulates in front of the Dryer.
+2) **Random Breakdowns:** The dynamic breakdown probability activates. Machines take damage every tick they operate and eventually shut down (`status = "Broken"`), forcing the operator to manually intervene and observe queue overflows.
 
 ---
 
-##  6. How to Build & Run
+## 6. ImGui User Interface Features
 
-1) Clone this repository.
-2) Configure the build environment using CMake. (Requires integration with ImGui, SDL2, and OpenGL3.)
-3) Run the built executable to start the simulation.
+- **Simulation Control:** Start, Pause, Reset buttons; Speed slider (1x-5x); Scenario selector dropdown.
+- **Factory Floor:** Displays real-time status (WORKING, BROKEN, IDLE) of all machines using color-coded text via `MachineController`.
+- **Inspector:** Displays detailed machine telemetry (HP bar, Progress bar, Current Item, Queue Size). Administrators can intervene using **Force Break** and **Instant Repair** buttons.
+- **Event Log:** Powered by the Observer pattern, it records all state changes and repairs with timestamps in a scrollable view.
+- **Statistics:** Real-time tracking of Finished Goods, WIP count, and Total Breakdowns.
 
+---
+
+## 7. Class Diagram (UML)
+
+```mermaid
+classDiagram
+    %% Core Simulation Management
+    namespace Manager {
+        class FactorySimulation {
+            -vector~unique_ptr~Machine~~ machines
+            +start(builtPipeline) void
+            +runTick() void
+        }
+        class FactoryBuilder {
+            -vector~unique_ptr~Machine~~ pipeline
+            +addUltrafiltration(time) FactoryBuilder
+            +addDryer(time) FactoryBuilder
+            +addPackaging(time) FactoryBuilder
+            +buildPipeline() vector~unique_ptr~Machine~~
+        }
+    }
+
+    %% Observer Pattern
+    namespace Event_System {
+        class IObserver {
+            <<interface>>
+            +onNotify(machineName, eventType)* void
+        }
+        class SimulationLogger {
+            -deque~string~ eventLogs
+            +onNotify(machineName, eventType) void
+            +addManualLog(message) void
+        }
+    }
+
+    %% Core Hierarchy & Machines
+    namespace Core_Machines {
+        class SimulationObject {
+            <<abstract>>
+            #vector~IObserver*~ observers
+            +update(tick)* void
+            +notifyObservers(eventType) void
+        }
+        class Machine {
+            <<abstract>>
+            #int hp
+            #string status
+            #ItemBuffer inputBuffer
+            #unique_ptr~Product~ currentItem
+            +update(tick) void
+            +process()* void
+            +transformItem() void
+            +breakdown() void
+        }
+        class Ultrafilteration { +process() void }
+        class Dryer { +process() void }
+        class Packaging { +process() void }
+    }
+
+    %% OCP & Inventory
+    namespace Product_Management {
+        class RecipeManager {
+            <<Singleton>>
+            -map registry
+            +registerRecipe(machineName, inputName, transformer) void
+            +transform(machineName, item) unique_ptr~Product~
+        }
+        class Product {
+            <<abstract>>
+            -int id
+            +getName()* string
+        }
+        class RawMilk
+        class LiquidWhey
+        class WPCPowder
+    }
+
+    %% Decoupled UI Wrapper
+    class MachineController {
+        -Machine& machine
+        +getStatus() string
+        +getHp() int
+        +forceBreak() void
+        +repair() void
+    }
+
+    %% Relationships
+    FactorySimulation *-- Machine : Composition
+    FactoryBuilder --> Machine : Creates
+    SimulationObject <|-- Machine : Inheritance
+    Machine <|-- Ultrafilteration
+    Machine <|-- Dryer
+    Machine <|-- Packaging
+    
+    SimulationObject o-- IObserver : Notifies
+    IObserver <|-- SimulationLogger : Implements
+    
+    Machine --> RecipeManager : Requests Transformation
+    Product <|-- RawMilk
+    Product <|-- LiquidWhey
+    Product <|-- WPCPowder
+    
+    MachineController --> Machine : Safely Wraps
+```
+## 8. How to Build & Run
+
+# 1. Clone this repository
+git clone <your-repository-url>
+cd <repository-folder>
+
+# 2. Build using CMake (Command Line / Developer Command Prompt)
+mkdir build
+cd build
+cmake ..
+cmake --build . --config Release
+
+# 3. Run the executable
+./Release/FactorySimulation.exe
