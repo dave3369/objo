@@ -3,41 +3,38 @@
 #include <vector>
 #include <deque>
 #include <string>
-#include "SimulationCore.h" // 💡 필수: SimulationLogger를 알기 위해 추가
-
-class MachineController;
+#include "SimulationBridge.h" 
 
 class FactoryView {
 public:
     void renderControl(
-        bool& simulationRunning,
-        bool& resetRequested,
-        int tick,
-        int& speed,
-        int& selectedScenario,
-        const char* scenarios[],
+        SimulationCommand& cmd, 
+        int tick, 
+        int& speed, 
+        int& selectedScenario, 
+        const char* scenarios[], 
         int scenarioCount
     );
 
     void renderFactoryFloor(
-        const std::vector<MachineController>& controllers,
+        const std::vector<MachineSnapshot>& snapshots,
         int& selectedMachineIndex
     );
 
-    // 💡 deque 대신 SimulationLogger 참조를 받도록 수정
     void renderInspector(
-        const std::vector<MachineController>& controllers,
+        const std::vector<MachineSnapshot>& snapshots,
         int selectedMachineIndex,
         int tick, 
-        SimulationLogger& logger 
+        SimulationCommand& cmd 
     );
 
-    // 💡 deque 대신 SimulationLogger 참조를 받도록 수정
-    void renderEventLog(SimulationLogger& logger);
+    void renderEventLog(const std::deque<std::string>& logs, SimulationCommand& cmd);
 
+    
     void renderStatistics(
         int finishedGoods,
         int totalBreakdowns,
-        const std::vector<MachineController>& controllers
+        int lostProducts,
+        const std::vector<MachineSnapshot>& snapshots
     );
 };

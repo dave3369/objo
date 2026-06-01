@@ -8,7 +8,7 @@ using namespace std;
 // 1. Machine 베이스 클래스 핵심 로직
 // ==========================================
 void Machine::update(int tick) {
-    if (status == "Broken") return;
+    if (status == "BROKEN") return;
 
     completedThisTick = false;
 
@@ -16,13 +16,13 @@ void Machine::update(int tick) {
         currentItem = inputBuffer.pop();
         if (currentItem) {
             currentWorkTime = 0;
-            status = "Working";
+            status = "WORKING";
         } else {
-            status = "Idle";
+            status = "IDLE";
         }
     }
 
-    if (currentItem && status == "Working") {
+    if (currentItem && status == "WORKING") {
         process(); 
         decreasedhp();
         
@@ -33,13 +33,13 @@ void Machine::update(int tick) {
             transformItem();
             finishProcess(); 
             
-            status = "Idle";
+            status = "IDLE";
             currentWorkTime = 0;
         }
     }
 
-    if (randomBreakdownMode && status == "Working") {
-        if (rand() % 1000 < breakdownChance()) {
+    if (randomBreakdownMode && status == "WORKING") {
+        if (rand() % 500< breakdownChance()) {
             breakdown(); 
         }
     }

@@ -21,6 +21,9 @@ public:
     void onNotify(const std::string& machineName, const std::string& eventType) override {
         std::string logMsg = "[Tick " + std::to_string(currentTick) + "] " + machineName;
         if (eventType == "BREAKDOWN") logMsg += " has broken down!";
+        else if (eventType == "BREAKDOWN_ITEM_LOST") { 
+            logMsg += " broke down and LOST its current item!"; 
+        }
         else if (eventType == "PROCESS_COMPLETE") logMsg += " finished its process.";
         else logMsg += " triggered event: " + eventType;
         

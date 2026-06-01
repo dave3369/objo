@@ -1,12 +1,9 @@
 #include "FactoryView.h"
-#include "machineController.h" 
+#include "SimulationBridge.h" 
 #include "imgui.h"
 
-
-// 1. (생략했었던 기존 코드 복구) Control 렌더링
 void FactoryView::renderControl(
-    bool& simulationRunning,
-    bool& resetRequested,
+    SimulationCommand& cmd,
     int tick,
     int& speed,
     int& selectedScenario,
@@ -20,11 +17,11 @@ void FactoryView::renderControl(
 
     ImGui::Text("Current Tick: %d", tick);
 
-    if (ImGui::Button("Start")) simulationRunning = true;
+    if (ImGui::Button("Start")) cmd.startRequested = true;
     ImGui::SameLine();
-    if (ImGui::Button("Pause")) simulationRunning = false;
+    if (ImGui::Button("Pause")) cmd.pauseRequested = true;
     ImGui::SameLine();
-    if (ImGui::Button("Reset")) resetRequested = true;
+    if (ImGui::Button("Reset")) cmd.resetRequested = true;
 
     ImGui::SliderInt("Speed", &speed, 1, 5);
 
@@ -33,9 +30,8 @@ void FactoryView::renderControl(
     ImGui::End();
 }
 
-// 2. (의존성 제거됨) Factory Floor 렌더링
 void FactoryView::renderFactoryFloor(
-    const std::vector<MachineController>& controllers,
+    const std::vector<MachineSnapshot>& snapshots,
     int& selectedMachineIndex
 ) {
     ImGui::SetNextWindowPos(ImVec2(490, 60), ImGuiCond_Once);
@@ -46,104 +42,101 @@ void FactoryView::renderFactoryFloor(
     ImGui::Text("Machines (click to inspect)");
     ImGui::Separator();
 
-    for (int i = 0; i < controllers.size(); i++) {
-        // 외부에서 받아온 컨트롤러를 그대로 사용
-        const MachineController& controller = controllers[i];
+    for (int i = 0; i < snapshots.size(); i++) {
+        const MachineSnapshot& snap = snapshots[i];
 
         bool selected = (selectedMachineIndex == i);
 
-        if (ImGui::Selectable(controller.getName().c_str(), selected)) {
+        if (ImGui::Selectable(snap.name.c_str(), selected)) {
             selectedMachineIndex = i;
         }
 
         ImGui::SameLine();
 
-        if (controller.getStatus() == "WORKING") {
-            ImGui::TextColored(ImVec4(0, 1, 0, 1), "WORKING");
-        } else if (controller.getStatus() == "BROKEN") {
-            ImGui::TextColored(ImVec4(1, 0, 0, 1), "BROKEN");
+        if (snap.status == "Working" || snap.status == "WORKING") {
+            ImGui::TextColored(ImVec4(0, 1, 0, 1), "Working"); // 연두색
+        } else if (snap.status == "Broken" || snap.status == "BROKEN") {
+            ImGui::TextColored(ImVec4(1, 0, 0, 1), "Broken");  // 빨간색
         } else {
-            ImGui::Text("%s", controller.getStatus().c_str());
+            ImGui::Text("%s", snap.status.c_str());
         }
     }
 
     ImGui::End();
 }
 
-// 3. (의존성 제거됨) Inspector 렌더링
 void FactoryView::renderInspector(
-    const std::vector<MachineController>& controllers,
+    const std::vector<MachineSnapshot>& snapshots,
     int selectedMachineIndex,
     int tick,
-    SimulationLogger& logger
+    SimulationCommand& cmd
 ) {
     ImGui::SetNextWindowPos(ImVec2(470, 250), ImGuiCond_Once);
     ImGui::SetNextWindowSize(ImVec2(380, 340), ImGuiCond_Once);
 
     ImGui::Begin("Inspector");
 
-    if (!controllers.empty() && selectedMachineIndex < controllers.size()) {
-        MachineController controller = controllers[selectedMachineIndex];
+    if (!snapshots.empty() && selectedMachineIndex < snapshots.size()) {
+        const MachineSnapshot& snap = snapshots[selectedMachineIndex];
 
-        ImGui::Text("Selected Machine: %s", controller.getName().c_str());
+        ImGui::Text("Selected Machine: %s", snap.name.c_str());
         ImGui::Separator();
 
-        if (controller.getStatus() == "WORKING") {
-            ImGui::TextColored(ImVec4(0, 1, 0, 1), "Status: %s", controller.getStatus().c_str());
-        } else if (controller.getStatus() == "BROKEN") {
-            ImGui::TextColored(ImVec4(1, 0, 0, 1), "Status: %s", controller.getStatus().c_str());
+        if (snap.status == "Working" || snap.status == "WORKING") {
+            ImGui::TextColored(ImVec4(0, 1, 0, 1), "Status: %s", snap.status.c_str());
+        } else if (snap.status == "Broken" || snap.status == "BROKEN") {
+            ImGui::TextColored(ImVec4(1, 0, 0, 1), "Status: %s", snap.status.c_str());
         } else {
-            ImGui::Text("Status: %s", controller.getStatus().c_str());
+            ImGui::Text("Status: %s", snap.status.c_str());
         }
 
-        ImGui::Text("HP: %d", controller.getHp());
-        ImGui::Text("Current Item: %s", controller.getCurrentItemName().c_str());
-        ImGui::ProgressBar(controller.getHp() / 100.0f, ImVec2(330, 20));
+        ImGui::Text("HP: %d", snap.hp);
+        ImGui::Text("Current Item: %s", snap.currentItemName.c_str());
+        ImGui::ProgressBar(snap.hp / 100.0f, ImVec2(330, 20));
 
         float workProgress = 0.0f;
-        if (controller.getProcessingTime() > 0) {
-            workProgress = (float)controller.getProgress() / controller.getProcessingTime();
+        if (snap.processingTime > 0) {
+            workProgress = (float)snap.progress / snap.processingTime;
         }
 
-        ImGui::Text("Progress: %d / %d", controller.getProgress(), controller.getProcessingTime());
+        ImGui::Text("Progress: %d / %d", snap.progress, snap.processingTime);
         ImGui::ProgressBar(workProgress, ImVec2(330, 20));
 
-        ImGui::Text("Queue Size: %d", controller.getQueueSize());
-        ImGui::Text("Process Time: %d", controller.getProcessingTime());
+        ImGui::Text("Queue Size: %d", snap.queueSize);
+        ImGui::Text("Output Count: %d", snap.outputCount);
+        ImGui::Text("Process Time: %d", snap.processingTime);
 
         ImGui::Separator();
 
         if (ImGui::Button("Force Break")) {
-        controller.forceBreak();
-        // 💡 중앙 로거에 수동 로그 기록
-        logger.addManualLog(controller.getName() + " was force broken"); 
-    }
-    ImGui::SameLine();
-    if (ImGui::Button("Instant Repair")) {
-        controller.repair();
-        logger.addManualLog(controller.getName() + " was repaired");
-    }
+            cmd.forceBreakRequested = true;
+            cmd.targetMachineIndex = selectedMachineIndex;
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Instant Repair")) {
+            cmd.instantRepairRequested = true;
+            cmd.targetMachineIndex = selectedMachineIndex;
+        }
     }
 
     ImGui::End();
 }
 
-// 4. (생략했었던 기존 코드 복구) Event Log 렌더링
-void FactoryView::renderEventLog(SimulationLogger& logger) {
+void FactoryView::renderEventLog(const std::deque<std::string>& logs, SimulationCommand& cmd) {
     ImGui::SetNextWindowPos(ImVec2(860, 60), ImGuiCond_Once);
     ImGui::SetNextWindowSize(ImVec2(490, 320), ImGuiCond_Once);
 
     ImGui::Begin("Event Log");
 
     if (ImGui::Button("Clear Log")) {
-        logger.clearLog();
+        cmd.clearLogRequested = true;
     }
 
     ImGui::Separator();
 
     ImGui::BeginChild("LogScroll", ImVec2(0, 220), true);
 
-    for (const std::string& log : logger.getLogs()) {
+   for (const std::string& log : logs) {
         ImGui::Text("%s", log.c_str());
     }
 
@@ -152,22 +145,23 @@ void FactoryView::renderEventLog(SimulationLogger& logger) {
     ImGui::End();
 }
 
-// 5. (의존성 제거됨) Statistics 렌더링
+
 void FactoryView::renderStatistics(
     int finishedGoods,
     int totalBreakdowns,
-    const std::vector<MachineController>& controllers
+    int  lostProducts,
+    const std::vector<MachineSnapshot>& snapshots
 ) {
     ImGui::SetNextWindowPos(ImVec2(860, 430), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(230, 150), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(230, 170), ImGuiCond_Once);
 
     ImGui::Begin("Statistics");
 
     int wipCount = 0;
-    for (const MachineController& controller : controllers) {
-        wipCount += controller.getQueueSize();
+    for (const MachineSnapshot& snap : snapshots) {
+        wipCount += snap.queueSize;
 
-        if (controller.hasCurrentItem()) {
+        if (snap.hasCurrentItem) {
             wipCount++;
         }
     }
@@ -175,6 +169,6 @@ void FactoryView::renderStatistics(
     ImGui::Text("Finished Goods: %d", finishedGoods);
     ImGui::Text("WIP Count: %d", wipCount);
     ImGui::Text("Total Breakdowns: %d", totalBreakdowns);
-
+    ImGui::Text("Lost Products: %d", lostProducts);
     ImGui::End();
 }

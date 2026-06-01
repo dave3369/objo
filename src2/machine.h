@@ -6,10 +6,9 @@
 #include <map>
 #include <functional>
 #include "SimulationCore.h"
+#include "SimulationBridge.h"
 
-// ==========================================
-// 💡 [신규] 완벽한 OCP를 위한 레시피 매니저
-// ==========================================
+
 class RecipeManager {
 public:
     using TransformerFunc = std::function<std::unique_ptr<Product>(int)>;
@@ -96,6 +95,8 @@ protected:
     bool completedThisTick = false;
 
     ItemBuffer inputBuffer;
+    int outputCount = 0;
+    int lostProductsCount = 0;
 
 public:
     Machine(int time, std::string initStatus, std::string machineName)
@@ -106,8 +107,21 @@ public:
         return "None";
     }
 
+    MachineSnapshot getSnapshot() const {
+    MachineSnapshot snap;
+    snap.name = name;
+    snap.status = status;
+    snap.hp = hp;
+    snap.queueSize = getQueueSize();
+    snap.progress = currentWorkTime;
+    snap.processingTime = processingTime;
+    snap.hasCurrentItem = (currentItem != nullptr);
+    snap.currentItemName = getCurrentItemName();
+    snap.outputCount = outputCount;
+    return snap;
+    }
+
     std::string getInfo() const override { return name; }
-    
     std::string getName() const { return name; }
     std::string getStatus() const { return status; }
     int gethp() const { return hp; }
@@ -120,22 +134,30 @@ public:
     void setRandomBreakdownMode(bool enabled) { randomBreakdownMode = enabled; }
     void repair() { hp = 100; 
         if (currentItem) {
-        status = "Working";
+        status = "WORKING";
     } else {
-        status = "Idle";
+        status = "IDLE";
     } }
     void forceBreak() { hp = 0; breakdown(); }
     void decreasedhp() { hp -= 1; if(hp <= 0) breakdown(); }
     
     void setNextMachine(Machine* next) { nextMachine = next; }
     void receiveItem(std::unique_ptr<Product> item) { inputBuffer.push(std::move(item)); }
-    
+    int getLostProductsCount() const { return lostProductsCount; }
     void breakdown() {
-        hp -= 10;
-        status = "Broken";
-        notifyObservers("BREAKDOWN");
+        hp -= 1;
+        status = "BROKEN";
+        if (currentItem) {
+            currentItem.reset(); // 아이템을 파괴(메모리 해제)하여 소실 처리
+            lostProductsCount++; // 유실 카운트 증가
+            currentWorkTime = 0; // 작업 진행도 초기화
+            notifyObservers("BREAKDOWN_ITEM_LOST"); // 전용 이벤트 알림
+        } else {
+            notifyObservers("BREAKDOWN");
+        }
     }
     void finishProcess() {
+        outputCount++;
         notifyObservers("PROCESS_COMPLETE"); 
         if (nextMachine && currentItem) {
             nextMachine->receiveItem(std::move(currentItem)); 
@@ -184,17 +206,17 @@ public:
     FactoryBuilder() = default;
 
     // Fluent Interface (메서드 체이닝) 제공
-    FactoryBuilder& addUltrafiltration(int time, std::string initStatus = "Idle") {
+    FactoryBuilder& addUltrafiltration(int time, std::string initStatus = "IDLE") {
         pipeline.push_back(std::make_unique<Ultrafilteration>(time, initStatus));
         return *this;
     }
 
-    FactoryBuilder& addDryer(int time, std::string initStatus = "Idle") {
+    FactoryBuilder& addDryer(int time, std::string initStatus = "IDLE") {
         pipeline.push_back(std::make_unique<Dryer>(time, initStatus));
         return *this;
     }
 
-    FactoryBuilder& addPackaging(int time, std::string initStatus = "Idle") {
+    FactoryBuilder& addPackaging(int time, std::string initStatus = "IDLE") {
         pipeline.push_back(std::make_unique<Packaging>(time, initStatus));
         return *this;
     }
@@ -228,4 +250,11 @@ public:
     const std::vector<std::unique_ptr<Machine>>& getMachines() const { return machines; }
     int getFinishedGoods() const { return finishedGoods; }
     int getTotalBreakdowns() const { return totalBreakdowns; }
+    int getTotalLostProducts() const {
+        int total = 0;
+        for (const auto& m : machines) {
+            total += m->getLostProductsCount();
+        }
+        return total;
+    }
 };

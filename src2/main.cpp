@@ -7,7 +7,7 @@
 #include <deque>
 
 #include "machine.h"
-#include "machineController.h"
+#include "SimulationBridge.h"
 #include "FactoryView.h"
 
 int main(int argc, char* argv[])
@@ -64,6 +64,8 @@ int main(int argc, char* argv[])
     }
     double lastTickTime = ImGui::GetTime();
 
+    SimulationCommand cmd;
+
     while (running)
     {
         SDL_Event event;
@@ -98,27 +100,44 @@ int main(int argc, char* argv[])
             lastTickTime = currentTime;
         }
 
-        // =========================
-        // UI
-        // =========================
 
 const auto& machines = sim->getMachines();
-
-std::vector<MachineController> controllers;
-for (const auto& machine : machines) {
-    controllers.emplace_back(*machine); 
-}
+        std::vector<MachineSnapshot> snapshots;
+        for (const auto& machine : machines) {
+            snapshots.push_back(machine->getSnapshot()); 
+        }
 
 view.renderControl(
-    simulationRunning,
-    resetRequested,
-    tick,
-    speed,
-    selectedScenario,
-    scenarios,
+    cmd, 
+    tick, 
+    speed, 
+    selectedScenario, 
+    scenarios, 
     IM_ARRAYSIZE(scenarios)
 );
 
+view.renderFactoryFloor(snapshots, selectedMachineIndex);
+view.renderInspector(snapshots, selectedMachineIndex, tick, cmd);
+view.renderEventLog(logger.getLogs(), cmd);
+view.renderStatistics(sim->getFinishedGoods(), sim->getTotalBreakdowns(), sim->getTotalLostProducts(), snapshots);
+
+if (cmd.clearLogRequested) {
+    logger.clearLog();
+}
+
+if (cmd.startRequested) simulationRunning = true;
+if (cmd.pauseRequested) simulationRunning = false;
+if (cmd.resetRequested)  resetRequested = true;
+
+if (cmd.forceBreakRequested && cmd.targetMachineIndex >= 0) {
+    sim->getMachines()[cmd.targetMachineIndex]->forceBreak();
+    logger.addManualLog(snapshots[cmd.targetMachineIndex].name + " was force broken");
+}
+if (cmd.instantRepairRequested && cmd.targetMachineIndex >= 0) {
+            sim->getMachines()[cmd.targetMachineIndex]->repair();
+            logger.addManualLog(snapshots[cmd.targetMachineIndex].name + " was repaired");
+        }
+cmd.clear();
 if (resetRequested)
 {
             sim = std::make_unique<FactorySimulation>();
@@ -158,11 +177,9 @@ for (const auto& machine : updatedMachines)
     machine->setRandomBreakdownMode(randomMode);
 }
 
-view.renderFactoryFloor(controllers, selectedMachineIndex);
-view.renderInspector(controllers, selectedMachineIndex, tick, logger);
-view.renderEventLog(logger);
 
-view.renderStatistics(sim->getFinishedGoods(), sim->getTotalBreakdowns(), controllers);
+
+
 
         ImGui::Render();
 
