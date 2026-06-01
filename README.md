@@ -46,17 +46,17 @@ The simulation processes `Raw Milk` into a finished `WPC Powder` product through
 ### 1) Ultrafiltration (Stage 1)
 * **Input/Output:** Raw Milk -> Liquid Whey
 * **Role:** Filters out water and lactose to concentrate the protein (Processing time: 3 Ticks).
-* **Feature:** Prone to intermittent breakdowns (Breakdown probability: 5%).
+* **Feature:** Prone to intermittent breakdowns (Breakdown probability: 0.5%).
 
 ### 2) Spray Dryer - Bottleneck (Stage 2)
 * **Input/Output:** Liquid Whey -> WPC Powder
 * **Role:** Sprays hot air onto the concentrate to convert it into powder (Processing time: 7 Ticks).
-* **Feature:** Induces a natural bottleneck due to the longest processing time. It has the highest breakdown probability (12%) due to temperature sensor wear.
+* **Feature:** Induces a natural bottleneck due to the longest processing time. It has the highest breakdown probability (1.2%) due to temperature sensor wear.
 
 ### 3) Packaging (Stage 3)
 * **Input/Output:** WPC Powder -> (Finished Good)
 * **Role:** Seals the powder into commercial containers (Processing time: 2 Ticks).
-* **Feature:** The fastest and most stable process (Breakdown probability: 3%).
+* **Feature:** The fastest and most stable process (Breakdown probability: 0.3%).
 
 ---
 
