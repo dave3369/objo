@@ -22,7 +22,7 @@ This simulation is fundamentally architected around the four core principles of 
 - The entire pipeline and inventory system were refactored using `std::unique_ptr`. The `ItemBuffer` safely moves `unique_ptr<Product>`, preventing any memory leaks during high-speed simulations, forced breakdowns, or pipeline resets. 
 
 ### 4) UI & Backend Decoupling (MVC Approach)
-- The backend core classes do not contain a single line of Dear ImGui-related headers. The UI strictly reads data through the `MachineController` wrapper and the `SimulationLogger`. The top-level entry point (`main.cpp`) bridges the two sides, securely transforming UI button clicks into abstracted backend commands.
+- The backend core classes do not contain a single line of Dear ImGui-related headers. We completely eliminated intermediate controller classes by introducing `SimulationBridge.h`. The UI strictly reads pure data structs (`MachineSnapshot`) and dispatches pure action requests (`SimulationCommand`). This ensures a 100% decoupled MVC architecture where the View and the Model are entirely oblivious to each other's implementation.
 
 ---
 
@@ -30,12 +30,11 @@ This simulation is fundamentally architected around the four core principles of 
 
 To ensure maximum scalability and compliance with the OCP, we implemented several advanced design patterns:
 
-### 1) **Observer Pattern (Event System):** 
-An `IObserver` interface was introduced. The `SimulationLogger` subscribes to machines, which broadcast decoupled notifications (`notifyObservers("BREAKDOWN")`) without knowing how the logs are rendered.
-### 2) **Singleton & Strategy (RecipeManager):** 
-To completely decouple machine logic from specific products, we introduced a `RecipeManager`. It registers functional transformation rules (`TransformerFunc`) at runtime. Machines no longer hardcode output types; they simply request a transformation (`transformItem()`).
-### 3) **Builder Pattern (Pipeline Construction):** 
-The `FactoryBuilder` provides a fluent interface (`addUltrafiltration(3).addDryer(7)...`) to dynamically construct, link (`setNextMachine`), and inject the machine pipeline into the simulation without modifying the core engine.
+### 1) **Observer Pattern (Event System):** An `IObserver` interface was introduced. The `SimulationLogger` subscribes to machines, which broadcast decoupled notifications (e.g., `"BREAKDOWN"`, `"BREAKDOWN_ITEM_LOST"`) without knowing how the logs are rendered.
+
+### 2) **Singleton & Strategy (RecipeManager):** To completely decouple machine logic from specific products, we introduced a `RecipeManager`. It registers functional transformation rules (`TransformerFunc`) at runtime. Machines no longer hardcode output types; they simply request a transformation (`transformItem()`).
+
+### 3) **Builder Pattern (Pipeline Construction):** The `FactoryBuilder` provides a fluent interface (`addUltrafiltration(3).addDryer(7)...`) to dynamically construct, link (`setNextMachine`), and inject the machine pipeline into the simulation without modifying the core engine.
 
 ---
 
@@ -46,17 +45,17 @@ The simulation processes `Raw Milk` into a finished `WPC Powder` product through
 ### 1) Ultrafiltration (Stage 1)
 * **Input/Output:** Raw Milk -> Liquid Whey
 * **Role:** Filters out water and lactose to concentrate the protein (Processing time: 3 Ticks).
-* **Feature:** Prone to intermittent breakdowns (Breakdown probability: 0.5%).
+* **Feature:** Prone to intermittent breakdowns (Breakdown probability: 1.0%).
 
 ### 2) Spray Dryer - Bottleneck (Stage 2)
 * **Input/Output:** Liquid Whey -> WPC Powder
 * **Role:** Sprays hot air onto the concentrate to convert it into powder (Processing time: 7 Ticks).
-* **Feature:** Induces a natural bottleneck due to the longest processing time. It has the highest breakdown probability (1.2%) due to temperature sensor wear.
+* **Feature:** Induces a natural bottleneck due to the longest processing time. It has the highest breakdown probability (2.4%) due to temperature sensor wear.
 
 ### 3) Packaging (Stage 3)
 * **Input/Output:** WPC Powder -> (Finished Good)
 * **Role:** Seals the powder into commercial containers (Processing time: 2 Ticks).
-* **Feature:** The fastest and most stable process (Breakdown probability: 0.3%).
+* **Feature:** The fastest and most stable process (Breakdown probability: 0.6%).
 
 ---
 
@@ -64,25 +63,23 @@ The simulation processes `Raw Milk` into a finished `WPC Powder` product through
 
 Users can switch between the following scenarios in real-time via the ImGui dropdown menu:
 
-### 1) **Normal Flow:** 
-The pipeline runs at its default speed. Due to the differences in processing times (3 -> 7 -> 2), users can observe a realistic bottleneck where WIP (Work-In-Progress) accumulates in front of the Dryer.
-### 2) **Random Breakdowns:** 
-The dynamic breakdown probability activates. Machines take damage every tick they operate and eventually shut down (`status = "Broken"`), forcing the operator to manually intervene and observe queue overflows.
+### 1) **Normal Flow:** The pipeline runs at its default speed. Due to the differences in processing times (3 -> 7 -> 2), users can observe a realistic bottleneck where WIP (Work-In-Progress) accumulates in front of the Dryer.
+
+### 2) **Random Breakdowns (Overflow & Product Loss):** The dynamic breakdown probability activates. Machines take damage every tick they operate and eventually shut down (`status = "BROKEN"`). Crucially, any WIP item inside a breaking machine is permanently lost, triggering a `BREAKDOWN_ITEM_LOST` event and forcing operators to monitor queue overflows.
 
 ---
 
 ## 6. ImGui User Interface Features
 
-### 1) **Simulation Control:** 
-Start, Pause, Reset buttons; Speed slider (1x-5x); Scenario selector dropdown.
-### 2) **Factory Floor:** 
-Displays real-time status (WORKING, BROKEN, IDLE) of all machines using color-coded text via `MachineController`.
-### 3) **Inspector:** 
-Displays detailed machine telemetry (HP bar, Progress bar, Current Item, Queue Size). Administrators can intervene using **Force Break** and **Instant Repair** buttons.
-### 4) **Event Log:** 
-Powered by the Observer pattern, it records all state changes and repairs with timestamps in a scrollable view.
-### 5) **Statistics:** 
-Real-time tracking of Finished Goods, WIP count, and Total Breakdowns.
+### 1) **Simulation Control:** Start, Pause, Reset buttons; Speed slider (1x-5x); Scenario selector dropdown.
+
+### 2) **Factory Floor:** Displays real-time status (`WORKING`, `BROKEN`, `IDLE`) of all machines using color-coded text, cleanly driven by backend `MachineSnapshot` structs.
+
+### 3) **Inspector:** Displays detailed machine telemetry (HP bar, Progress bar, Current Item, Queue Size). Administrators can intervene using **Force Break** and **Instant Repair** commands.
+
+### 4) **Event Log:** Powered by the Observer pattern, it records all state changes, product losses, and repairs with timestamps in a scrollable view.
+
+### 5) **Statistics:** Real-time tracking of Finished Goods, WIP count, Total Breakdowns, and **Lost Products**.
 
 ---
 
