@@ -91,6 +91,7 @@ int main(int argc, char* argv[])
         {
             sim->runTick();
             tick++;
+            logger.setTick(tick);
 
 	    if (sim->getFinishedGoods() > lastFinishedGoods)
     	    {

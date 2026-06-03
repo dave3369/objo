@@ -181,7 +181,7 @@ void FactoryView::renderStatistics(
     }
 
     ImGui::Text("Finished Goods: %d", finishedGoods);
-    ImGui::Text("WIP Count: %d", wipCount);
+    ImGui::Text("WPC Count: %d", wipCount);
     ImGui::Text("Total Breakdowns: %d", totalBreakdowns);
     ImGui::Text("Lost Products: %d", lostProducts);
     ImGui::End();
