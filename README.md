@@ -292,8 +292,6 @@ classDiagram
 ```
 ### 7.2 UI/Backend Decoupling (Bridge Pattern Focus)
 ```mermaid
-< View 분리 버전 >
-
 classDiagram
     direction LR
 
@@ -375,8 +373,6 @@ classDiagram
 ```
 ### 7.3 Core Domain Logic 
 ```mermaid
-< 메인 로직 강조 버전 >
-
 classDiagram
     direction TB
 
