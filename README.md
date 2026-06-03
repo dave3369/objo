@@ -1,4 +1,4 @@
-<img width="1216" height="505" alt="image" src="https://github.com/user-attachments/assets/bfd17d8d-6bc5-4314-9587-5eee5120a3a2" /># WPC (Whey Protein Concentrate) Factory Simulation
+# WPC (Whey Protein Concentrate) Factory Simulation
 
 OOP with C++ | GIST EECS
 
@@ -66,9 +66,11 @@ The simulation processes `Raw Milk` into a finished `WPC Powder` product through
 
 Users can switch between the following scenarios in real-time via the ImGui dropdown menu:
 
-### 1) **Normal Flow:** The pipeline runs at its default speed. Due to the differences in processing times (3 -> 7 -> 2), users can observe a realistic bottleneck where WIP (Work-In-Progress) accumulates in front of the Dryer.
+### 1) **Normal Flow:** 
+The pipeline runs at its default speed. Due to the differences in processing times (3 -> 7 -> 2), users can observe a realistic bottleneck where WIP (Work-In-Progress) accumulates in front of the Dryer.
 
-### 2) **Random Breakdowns (Overflow & Product Loss):** The dynamic breakdown probability activates. Machines take damage every tick they operate and eventually shut down (`status = "BROKEN"`). Crucially, any WIP item inside a breaking machine is permanently lost, triggering a `BREAKDOWN_ITEM_LOST` event and forcing operators to monitor queue overflows.
+### 2) **Random Breakdowns (Overflow & Product Loss):** 
+The dynamic breakdown probability activates. Machines take damage every tick they operate and eventually shut down (`status = "BROKEN"`). Crucially, any WIP item inside a breaking machine is permanently lost, triggering a `BREAKDOWN_ITEM_LOST` event and forcing operators to monitor queue overflows.
 
 ---
 
@@ -92,104 +94,412 @@ Real-time tracking of Finished Goods, WIP count, Total Breakdowns, and **Lost Pr
 ---
 
 ## 7. Class Diagram (UML)
-
+### 7.1 Overall Structure
 ```mermaid
 classDiagram
     direction TB
 
-    %% 1. 코어 시뮬레이션 관리 계층 
+    %% ==========================================
+    %% 1. UI & Bridge Layer (데이터 단절 계층)
+    %% ==========================================
+    namespace UI_Bridge_Layer {
+        class FactoryView {
+            +renderControl(cmd, tick, speed, selectedScenario...)
+            +renderFactoryFloor(snapshots, selectedMachineIndex)
+            +renderInspector(snapshots, selectedMachineIndex, tick, cmd)
+            +renderEventLog(logs, cmd)
+            +renderStatistics(finishedGoods, breakdowns, lostProducts, snapshots)
+        }
+        
+        class MachineSnapshot {
+            <<struct>>
+            +name: string
+            +status: string
+            +hp: int
+            +queueSize: int
+            +progress: int
+            +processingTime: int
+            +hasCurrentItem: bool
+            +currentItemName: string
+            +outputCount: int
+        }
+        
+        class SimulationCommand {
+            <<struct>>
+            +startRequested: bool
+            +pauseRequested: bool
+            +resetRequested: bool
+            +clearLogRequested: bool
+            +forceBreakRequested: bool
+            +instantRepairRequested: bool
+            +targetMachineIndex: int
+            +clear() void
+        }
+    }
+
+    %% ==========================================
+    %% 2. Core Management (시뮬레이션 조립 및 루프)
+    %% ==========================================
     namespace Core_Management {
         class FactorySimulation {
             -vector~unique_ptr~Machine~~ machines
+            -int finishedGoods
+            -int totalBreakdowns
+            -int itemCounter
             +start(builtPipeline) void
             +runTick() void
+            +getMachines() vector~unique_ptr~Machine~~
+            +getTotalLostProducts() int
         }
+        
         class FactoryBuilder {
             -vector~unique_ptr~Machine~~ pipeline
-            +addUltrafiltration(time) FactoryBuilder
-            +addDryer(time) FactoryBuilder
-            +addPackaging(time) FactoryBuilder
+            +addUltrafiltration(time, initStatus) FactoryBuilder
+            +addDryer(time, initStatus) FactoryBuilder
+            +addPackaging(time, initStatus) FactoryBuilder
             +buildPipeline() vector~unique_ptr~Machine~~
         }
     }
 
-    %% 2. Observer Pattern
+    %% ==========================================
+    %% 3. Event System (Observer Pattern)
+    %% ==========================================
     namespace Event_System {
         class IObserver {
             <<interface>>
             +onNotify(machineName, eventType)* void
         }
+        
         class SimulationLogger {
             -deque~string~ eventLogs
+            -int currentTick
+            +setTick(tick) void
             +onNotify(machineName, eventType) void
             +addManualLog(message) void
+            +getLogs() deque~string~
+            +clearLog() void
         }
     }
 
-    %% 3. 실제 공장 기계 도메인
+    %% ==========================================
+    %% 4. Factory Domain (공장 기계와 버퍼)
+    %% ==========================================
     namespace Factory_Machines {
         class SimulationObject {
             <<abstract>>
             #vector~IObserver*~ observers
             +update(tick)* void
             +notifyObservers(eventType) void
+            +getInfo()* string
+            +addObserver(obs) void
         }
+        
+        class ItemBuffer {
+            -queue~unique_ptr~Product~~ q
+            +push(item) void
+            +pop() unique_ptr~Product~
+            +clear() void
+            +getSize() int
+        }
+        
         class Machine {
             <<abstract>>
             #int hp
             #string status
-            #ItemBuffer inputBuffer
+            #int processingTime
+            #int currentWorkTime
             #unique_ptr~Product~ currentItem
+            #ItemBuffer inputBuffer
+            #int outputCount
+            #int lostProductsCount
+            +update(tick) void
+            +process()* void
+            +transformItem() void
+            +breakdown() void
+            +getSnapshot() MachineSnapshot
+        }
+        
+        class Ultrafilteration {
+            +process() void
+            +breakdownChance() int
+        }
+        
+        class Dryer {
+            +process() void
+            +breakdownChance() int
+        }
+        
+        class Packaging {
+            +process() void
+            +breakdownChance() int
+        }
+    }
+
+    %% ==========================================
+    %% 5. Product & Recipes (OCP)
+    %% ==========================================
+    namespace Product_Recipes {
+        class RecipeManager {
+            <<Singleton>>
+            -map registry
+            +getInstance() RecipeManager$
+            +registerRecipe(machineName, inputName, transformer) void
+            +transform(machineName, item) unique_ptr~Product~
+        }
+        
+        class Product {
+            <<abstract>>
+            -int id
+            +getId() int
+            +getName()* string
+        }
+        
+        class RawMilk { +getName() string }
+        class LiquidWhey { +getName() string }
+        class WPCPowder { +getName() string }
+    }
+
+    %% ==========================================
+    %% 의존성 및 관계선 (선 꼬임 방지를 위한 최적화)
+    %% ==========================================
+    
+    %% 1. 상속 관계 (위에서 아래로 뻗어나가도록 배치)
+    SimulationObject <|-- Machine : Inherits
+    Machine <|-- Ultrafilteration
+    Machine <|-- Dryer
+    Machine <|-- Packaging
+    Product <|-- RawMilk
+    Product <|-- LiquidWhey
+    Product <|-- WPCPowder
+    IObserver <|-- SimulationLogger : Implements
+
+    %% 2. 소유 및 관리 (Composition & Aggregation)
+    FactorySimulation *-- Machine : Manages
+    Machine *-- ItemBuffer : Owns (inputBuffer)
+    SimulationObject o-- IObserver : Notifies Events
+    ItemBuffer o-- Product : Queues
+
+    %% 3. 참조 및 통신 (Dependencies)
+    FactoryView ..> MachineSnapshot : Reads
+    FactoryView ..> SimulationCommand : Writes
+    FactorySimulation ..> SimulationCommand : Executes Actions
+    Machine ..> MachineSnapshot : Generates
+    FactoryBuilder --> Machine : Instantiates Pipeline
+    Machine --> RecipeManager : Requests Transformation
+    RecipeManager ..> Product : Creates
+
+
+```
+### 7.2 UI/Backend Decoupling (Bridge Pattern Focus)
+```mermaid
+< View 분리 버전 >
+
+classDiagram
+    direction LR
+
+    %% ==========================================
+    %% 1. UI Layer (렌더링 및 사용자 입력)
+    %% ==========================================
+    namespace UI_Layer_ImGui {
+        class FactoryView {
+            +renderControl(cmd, tick, speed, selectedScenario...)
+            +renderFactoryFloor(snapshots, selectedMachineIndex)
+            +renderInspector(snapshots, selectedMachineIndex, tick, cmd)
+            +renderEventLog(logs, cmd)
+            +renderStatistics(finishedGoods, breakdowns, lostProducts, snapshots)
+        }
+    }
+
+    %% ==========================================
+    %% 2. Data Bridge Layer (UI와 백엔드의 완벽한 단절)
+    %% ==========================================
+    namespace Data_Bridge {
+        class MachineSnapshot {
+            <<struct (Read-Only)>>
+            +name: string
+            +status: string
+            +hp: int
+            +queueSize: int
+            +progress: int
+            +processingTime: int
+            +hasCurrentItem: bool
+            +currentItemName: string
+            +outputCount: int
+        }
+        
+        class SimulationCommand {
+            <<struct (Write-Only)>>
+            +startRequested: bool
+            +pauseRequested: bool
+            +resetRequested: bool
+            +clearLogRequested: bool
+            +forceBreakRequested: bool
+            +instantRepairRequested: bool
+            +targetMachineIndex: int
+            +clear() void
+        }
+    }
+
+    %% ==========================================
+    %% 3. Backend Engine (핵심 비즈니스 로직)
+    %% ==========================================
+    namespace Backend_Engine {
+        class FactorySimulation {
+            -vector~unique_ptr~Machine~~ machines
+            +runTick() void
+        }
+        
+        class Machine {
+            <<abstract>>
+            #string status
+            #int hp
+            +update(tick) void
+            +getSnapshot() MachineSnapshot
+        }
+    }
+
+    %% ==========================================
+    %% 의존성 및 관계선 (Decoupling Flow)
+    %% ==========================================
+    
+    %% UI는 순수 데이터만 읽고, 순수 명령만 내림
+    FactoryView ..> MachineSnapshot : 1. Render from pure data
+    FactoryView ..> SimulationCommand : 2. Dispatch user inputs
+    
+    %% 백엔드는 명령을 받아 실행하고, 스냅샷을 찍어 넘김
+    FactorySimulation ..> SimulationCommand : 3. Execute requested actions
+    Machine ..> MachineSnapshot : 4. Package state safely
+    
+    %% 백엔드 내부 소유 관계
+    FactorySimulation *-- Machine : Manages
+```
+### 7.3 Core Domain Logic 
+```mermaid
+< 메인 로직 강조 버전 >
+
+classDiagram
+    direction TB
+
+    %% ==========================================
+    %% 1. Core Management (파이프라인 생성 및 실행 루프)
+    %% ==========================================
+    namespace Core_Management {
+        class FactorySimulation {
+            -vector~unique_ptr~Machine~~ machines
+            -int finishedGoods
+            -int totalBreakdowns
+            -int itemCounter
+            +start(builtPipeline) void
+            +runTick() void
+            +getMachines() vector~unique_ptr~Machine~~
+            +getTotalLostProducts() int
+        }
+        
+        class FactoryBuilder {
+            -vector~unique_ptr~Machine~~ pipeline
+            +addUltrafiltration(time, initStatus) FactoryBuilder
+            +addDryer(time, initStatus) FactoryBuilder
+            +addPackaging(time, initStatus) FactoryBuilder
+            +buildPipeline() vector~unique_ptr~Machine~~
+        }
+    }
+
+    %% ==========================================
+    %% 2. Factory Machines (공장 기계 도메인)
+    %% ==========================================
+    namespace Factory_Machines {
+        class SimulationObject {
+            <<abstract>>
+            +update(tick)* void
+        }
+        
+        class ItemBuffer {
+            -queue~unique_ptr~Product~~ q
+            +push(item) void
+            +pop() unique_ptr~Product~
+            +clear() void
+            +getSize() int
+        }
+        
+        class Machine {
+            <<abstract>>
+            #int hp
+            #string status
+            #int processingTime
+            #int currentWorkTime
+            #unique_ptr~Product~ currentItem
+            #ItemBuffer inputBuffer
+            #int outputCount
+            #int lostProductsCount
             +update(tick) void
             +process()* void
             +transformItem() void
             +breakdown() void
         }
-        class Ultrafilteration { +process() void }
-        class Dryer { +process() void }
-        class Packaging { +process() void }
+        
+        class Ultrafilteration {
+            +process() void
+            +breakdownChance() int
+        }
+        
+        class Dryer {
+            +process() void
+            +breakdownChance() int
+        }
+        
+        class Packaging {
+            +process() void
+            +breakdownChance() int
+        }
     }
 
-    %% 4. 기계와 제품 생성을 분리하는 레시피 계층 (OCP)
+    %% ==========================================
+    %% 3. Product & Recipes (아이템과 변환 OCP)
+    %% ==========================================
     namespace Product_Recipes {
         class RecipeManager {
             <<Singleton>>
             -map registry
+            +getInstance() RecipeManager$
             +registerRecipe(machineName, inputName, transformer) void
             +transform(machineName, item) unique_ptr~Product~
         }
+        
         class Product {
             <<abstract>>
             -int id
+            +getId() int
             +getName()* string
         }
-        class RawMilk
-        class LiquidWhey
-        class WPCPowder
+        
+        class RawMilk { +getName() string }
+        class LiquidWhey { +getName() string }
+        class WPCPowder { +getName() string }
     }
 
-    %% Relationships
+    %% ==========================================
+    %% 의존성 및 관계선 (비즈니스 로직 흐름 최적화)
+    %% ==========================================
     
-    %% 생성과 사용의 분리 (Decoupling Management)
-    FactorySimulation *-- Machine : Composition
-    FactoryBuilder --> Machine : Creates
-
-    %% 로직과 알림의 분리 (Decoupling Logic from Logging)
-    SimulationObject o-- IObserver : Notifies (Loosely Coupled)
-    IObserver <|-- SimulationLogger : Implements
-
-    %% 기계와 제품 변환의 분리 (Decoupling Machine from Product)
-    Machine --> RecipeManager : Requests Transformation
-    
-    %% 상속 트리 (Inheritance Trees)
-    SimulationObject <|-- Machine
+    %% 1. 상속 관계 (다형성의 핵심)
+    SimulationObject <|-- Machine : Inherits
     Machine <|-- Ultrafilteration
     Machine <|-- Dryer
     Machine <|-- Packaging
-
+    
     Product <|-- RawMilk
     Product <|-- LiquidWhey
     Product <|-- WPCPowder
+
+    %% 2. 소유 및 파이프라인 구성 (객체의 생명주기)
+    FactorySimulation *-- Machine : Manages Pipeline
+    FactoryBuilder --> Machine : Instantiates
+    Machine *-- ItemBuffer : Owns (inputBuffer)
+    ItemBuffer o-- Product : Queues
+
+    %% 3. 제품 변환 흐름 (디커플링된 OCP 적용부)
+    Machine --> RecipeManager : Requests Transformation
+    RecipeManager ..> Product : Creates via TransformerFunc
 ```
 ## 8. How to Build & Run
 
