@@ -1,4 +1,4 @@
-# WPC (Whey Protein Concentrate) Factory Simulation
+<img width="1216" height="505" alt="image" src="https://github.com/user-attachments/assets/bfd17d8d-6bc5-4314-9587-5eee5120a3a2" /># WPC (Whey Protein Concentrate) Factory Simulation
 
 OOP with C++ | GIST EECS
 
@@ -90,8 +90,10 @@ Real-time tracking of Finished Goods, WIP count, and Total Breakdowns.
 
 ```mermaid
 classDiagram
-    %% Core Simulation Management
-    namespace Manager {
+    direction TB
+
+    %% 1. 코어 시뮬레이션 관리 계층 
+    namespace Core_Management {
         class FactorySimulation {
             -vector~unique_ptr~Machine~~ machines
             +start(builtPipeline) void
@@ -106,7 +108,7 @@ classDiagram
         }
     }
 
-    %% Observer Pattern
+    %% 2. Observer Pattern
     namespace Event_System {
         class IObserver {
             <<interface>>
@@ -119,8 +121,8 @@ classDiagram
         }
     }
 
-    %% Core Hierarchy & Machines
-    namespace Core_Machines {
+    %% 3. 실제 공장 기계 도메인
+    namespace Factory_Machines {
         class SimulationObject {
             <<abstract>>
             #vector~IObserver*~ observers
@@ -143,8 +145,8 @@ classDiagram
         class Packaging { +process() void }
     }
 
-    %% OCP & Inventory
-    namespace Product_Management {
+    %% 4. 기계와 제품 생성을 분리하는 레시피 계층 (OCP)
+    namespace Product_Recipes {
         class RecipeManager {
             <<Singleton>>
             -map registry
@@ -161,32 +163,28 @@ classDiagram
         class WPCPowder
     }
 
-    %% Decoupled UI Wrapper
-    class MachineController {
-        -Machine& machine
-        +getStatus() string
-        +getHp() int
-        +forceBreak() void
-        +repair() void
-    }
-
     %% Relationships
+    
+    %% 생성과 사용의 분리 (Decoupling Management)
     FactorySimulation *-- Machine : Composition
     FactoryBuilder --> Machine : Creates
-    SimulationObject <|-- Machine : Inheritance
+
+    %% 로직과 알림의 분리 (Decoupling Logic from Logging)
+    SimulationObject o-- IObserver : Notifies (Loosely Coupled)
+    IObserver <|-- SimulationLogger : Implements
+
+    %% 기계와 제품 변환의 분리 (Decoupling Machine from Product)
+    Machine --> RecipeManager : Requests Transformation
+    
+    %% 상속 트리 (Inheritance Trees)
+    SimulationObject <|-- Machine
     Machine <|-- Ultrafilteration
     Machine <|-- Dryer
     Machine <|-- Packaging
-    
-    SimulationObject o-- IObserver : Notifies
-    IObserver <|-- SimulationLogger : Implements
-    
-    Machine --> RecipeManager : Requests Transformation
+
     Product <|-- RawMilk
     Product <|-- LiquidWhey
     Product <|-- WPCPowder
-    
-    MachineController --> Machine : Safely Wraps
 ```
 ## 8. How to Build & Run
 
