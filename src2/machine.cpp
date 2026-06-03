@@ -104,17 +104,25 @@ void FactorySimulation::runTick() {
         }
     }
 
-    int currentBreakdowns = 0;
+    int beforeBroken = 0;
     for (const auto& m : machines) {
-        if (m->getStatus() == "BROKEN") currentBreakdowns++;
-    }
-    totalBreakdowns = currentBreakdowns; 
+        if (m->getStatus() == "BROKEN") beforeBroken++;
+    } 
 
     static int currentTick = 0;
     currentTick++;
 
     for (const auto& m : machines) {
         m->update(currentTick);
+    }
+
+    int afterBroken = 0;
+    for (const auto& m : machines) {
+        if (m->getStatus() == "BROKEN") afterBroken++;
+    }
+
+    if (afterBroken > beforeBroken) {
+        totalBreakdowns += afterBroken - beforeBroken;
     }
     
     if (!machines.empty() && machines.back()->didCompleteThisTick()) {
