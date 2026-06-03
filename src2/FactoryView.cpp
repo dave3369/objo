@@ -92,6 +92,20 @@ void FactoryView::renderInspector(
 
         ImGui::Text("HP: %d", snap.hp);
         ImGui::Text("Current Item: %s", snap.currentItemName.c_str());
+
+	if (snap.name == "Ultrafiltration") {
+        ImGui::Text("Operation: filter raw milk");
+        ImGui::Text("Output: Liquid Whey");
+    }
+    else if (snap.name == "Dryer") {
+        ImGui::Text("Operation: dry liquid whey");
+        ImGui::Text("Output: WPC Powder");
+    }
+    else if (snap.name == "Packaging") {
+        ImGui::Text("Operation: package WPC powder");
+        ImGui::Text("Output: Finished Product");
+    }
+
         ImGui::ProgressBar(snap.hp / 100.0f, ImVec2(330, 20));
 
         float workProgress = 0.0f;
