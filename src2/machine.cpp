@@ -106,7 +106,7 @@ void FactorySimulation::runTick() {
 
     int currentBreakdowns = 0;
     for (const auto& m : machines) {
-        if (m->getStatus() == "Broken") currentBreakdowns++;
+        if (m->getStatus() == "BROKEN") currentBreakdowns++;
     }
     totalBreakdowns = currentBreakdowns; 
 

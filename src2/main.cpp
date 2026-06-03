@@ -5,6 +5,7 @@
 #include <SDL.h>
 #include <SDL_opengl.h>
 #include <deque>
+#include <cstdlib>
 
 #include "machine.h"
 #include "SimulationBridge.h"
