@@ -30,11 +30,14 @@ This simulation is fundamentally architected around the four core principles of 
 
 To ensure maximum scalability and compliance with the OCP, we implemented several advanced design patterns:
 
-### 1) **Observer Pattern (Event System):** An `IObserver` interface was introduced. The `SimulationLogger` subscribes to machines, which broadcast decoupled notifications (e.g., `"BREAKDOWN"`, `"BREAKDOWN_ITEM_LOST"`) without knowing how the logs are rendered.
+### 1) **Observer Pattern (Event System):** 
+An `IObserver` interface was introduced. The `SimulationLogger` subscribes to machines, which broadcast decoupled notifications (e.g., `"BREAKDOWN"`, `"BREAKDOWN_ITEM_LOST"`) without knowing how the logs are rendered.
 
-### 2) **Singleton & Strategy (RecipeManager):** To completely decouple machine logic from specific products, we introduced a `RecipeManager`. It registers functional transformation rules (`TransformerFunc`) at runtime. Machines no longer hardcode output types; they simply request a transformation (`transformItem()`).
+### 2) **Singleton & Strategy (RecipeManager):** 
+To completely decouple machine logic from specific products, we introduced a `RecipeManager`. It registers functional transformation rules (`TransformerFunc`) at runtime. Machines no longer hardcode output types; they simply request a transformation (`transformItem()`).
 
-### 3) **Builder Pattern (Pipeline Construction):** The `FactoryBuilder` provides a fluent interface (`addUltrafiltration(3).addDryer(7)...`) to dynamically construct, link (`setNextMachine`), and inject the machine pipeline into the simulation without modifying the core engine.
+### 3) **Builder Pattern (Pipeline Construction):** 
+The `FactoryBuilder` provides a fluent interface (`addUltrafiltration(3).addDryer(7)...`) to dynamically construct, link (`setNextMachine`), and inject the machine pipeline into the simulation without modifying the core engine.
 
 ---
 
@@ -71,15 +74,20 @@ Users can switch between the following scenarios in real-time via the ImGui drop
 
 ## 6. ImGui User Interface Features
 
-### 1) **Simulation Control:** Start, Pause, Reset buttons; Speed slider (1x-5x); Scenario selector dropdown.
+### 1) **Simulation Control:** 
+Start, Pause, Reset buttons; Speed slider (1x-5x); Scenario selector dropdown.
 
-### 2) **Factory Floor:** Displays real-time status (`WORKING`, `BROKEN`, `IDLE`) of all machines using color-coded text, cleanly driven by backend `MachineSnapshot` structs.
+### 2) **Factory Floor:** 
+Displays real-time status (`WORKING`, `BROKEN`, `IDLE`) of all machines using color-coded text, cleanly driven by backend `MachineSnapshot` structs.
 
-### 3) **Inspector:** Displays detailed machine telemetry (HP bar, Progress bar, Current Item, Queue Size). Administrators can intervene using **Force Break** and **Instant Repair** commands.
+### 3) **Inspector:** 
+Displays detailed machine telemetry (HP bar, Progress bar, Current Item, Queue Size). Administrators can intervene using **Force Break** and **Instant Repair** commands.
 
-### 4) **Event Log:** Powered by the Observer pattern, it records all state changes, product losses, and repairs with timestamps in a scrollable view.
+### 4) **Event Log:** 
+Powered by the Observer pattern, it records all state changes, product losses, and repairs with timestamps in a scrollable view.
 
-### 5) **Statistics:** Real-time tracking of Finished Goods, WIP count, Total Breakdowns, and **Lost Products**.
+### 5) **Statistics:** 
+Real-time tracking of Finished Goods, WIP count, Total Breakdowns, and **Lost Products**.
 
 ---
 
