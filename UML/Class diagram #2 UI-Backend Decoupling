@@ -1,0 +1,78 @@
+classDiagram
+    direction LR
+
+    %% ==========================================
+    %% 1. UI Layer (렌더링 및 사용자 입력)
+    %% ==========================================
+    namespace UI_Layer_ImGui {
+        class FactoryView {
+            +renderControl(cmd, tick, speed, selectedScenario...)
+            +renderFactoryFloor(snapshots, selectedMachineIndex)
+            +renderInspector(snapshots, selectedMachineIndex, tick, cmd)
+            +renderEventLog(logs, cmd)
+            +renderStatistics(finishedGoods, breakdowns, lostProducts, snapshots)
+        }
+    }
+
+    %% ==========================================
+    %% 2. Data Bridge Layer (UI와 백엔드의 완벽한 단절)
+    %% ==========================================
+    namespace Data_Bridge {
+        class MachineSnapshot {
+            <<struct (Read-Only)>>
+            +name: string
+            +status: string
+            +hp: int
+            +queueSize: int
+            +progress: int
+            +processingTime: int
+            +hasCurrentItem: bool
+            +currentItemName: string
+            +outputCount: int
+        }
+        
+        class SimulationCommand {
+            <<struct (Write-Only)>>
+            +startRequested: bool
+            +pauseRequested: bool
+            +resetRequested: bool
+            +clearLogRequested: bool
+            +forceBreakRequested: bool
+            +instantRepairRequested: bool
+            +targetMachineIndex: int
+            +clear() void
+        }
+    }
+
+    %% ==========================================
+    %% 3. Backend Engine (핵심 비즈니스 로직)
+    %% ==========================================
+    namespace Backend_Engine {
+        class FactorySimulation {
+            -vector~unique_ptr~Machine~~ machines
+            +runTick() void
+        }
+        
+        class Machine {
+            <<abstract>>
+            #string status
+            #int hp
+            +update(tick) void
+            +getSnapshot() MachineSnapshot
+        }
+    }
+
+    %% ==========================================
+    %% 의존성 및 관계선 (Decoupling Flow)
+    %% ==========================================
+    
+    %% UI는 순수 데이터만 읽고, 순수 명령만 내림
+    FactoryView ..> MachineSnapshot : 1. Render from pure data
+    FactoryView ..> SimulationCommand : 2. Dispatch user inputs
+    
+    %% 백엔드는 명령을 받아 실행하고, 스냅샷을 찍어 넘김
+    FactorySimulation ..> SimulationCommand : 3. Execute requested actions
+    Machine ..> MachineSnapshot : 4. Package state safely
+    
+    %% 백엔드 내부 소유 관계
+    FactorySimulation *-- Machine : Manages
