@@ -1,0 +1,193 @@
+classDiagram
+    direction TB
+
+    %% ==========================================
+    %% 1. UI & Bridge Layer (데이터 단절 계층)
+    %% ==========================================
+    namespace UI_Bridge_Layer {
+        class FactoryView {
+            +renderControl(cmd, tick, speed, selectedScenario...)
+            +renderFactoryFloor(snapshots, selectedMachineIndex)
+            +renderInspector(snapshots, selectedMachineIndex, tick, cmd)
+            +renderEventLog(logs, cmd)
+            +renderStatistics(finishedGoods, breakdowns, lostProducts, snapshots)
+        }
+        
+        class MachineSnapshot {
+            <<struct>>
+            +name: string
+            +status: string
+            +hp: int
+            +queueSize: int
+            +progress: int
+            +processingTime: int
+            +hasCurrentItem: bool
+            +currentItemName: string
+            +outputCount: int
+        }
+        
+        class SimulationCommand {
+            <<struct>>
+            +startRequested: bool
+            +pauseRequested: bool
+            +resetRequested: bool
+            +clearLogRequested: bool
+            +forceBreakRequested: bool
+            +instantRepairRequested: bool
+            +targetMachineIndex: int
+            +clear() void
+        }
+    }
+
+    %% ==========================================
+    %% 2. Core Management (시뮬레이션 조립 및 루프)
+    %% ==========================================
+    namespace Core_Management {
+        class FactorySimulation {
+            -vector~unique_ptr~Machine~~ machines
+            -int finishedGoods
+            -int totalBreakdowns
+            -int itemCounter
+            +start(builtPipeline) void
+            +runTick() void
+            +getMachines() vector~unique_ptr~Machine~~
+            +getTotalLostProducts() int
+        }
+        
+        class FactoryBuilder {
+            -vector~unique_ptr~Machine~~ pipeline
+            +addUltrafiltration(time, initStatus) FactoryBuilder
+            +addDryer(time, initStatus) FactoryBuilder
+            +addPackaging(time, initStatus) FactoryBuilder
+            +buildPipeline() vector~unique_ptr~Machine~~
+        }
+    }
+
+    %% ==========================================
+    %% 3. Event System (Observer Pattern)
+    %% ==========================================
+    namespace Event_System {
+        class IObserver {
+            <<interface>>
+            +onNotify(machineName, eventType)* void
+        }
+        
+        class SimulationLogger {
+            -deque~string~ eventLogs
+            -int currentTick
+            +setTick(tick) void
+            +onNotify(machineName, eventType) void
+            +addManualLog(message) void
+            +getLogs() deque~string~
+            +clearLog() void
+        }
+    }
+
+    %% ==========================================
+    %% 4. Factory Domain (공장 기계와 버퍼)
+    %% ==========================================
+    namespace Factory_Machines {
+        class SimulationObject {
+            <<abstract>>
+            #vector~IObserver*~ observers
+            +update(tick)* void
+            +notifyObservers(eventType) void
+            +getInfo()* string
+            +addObserver(obs) void
+        }
+        
+        class ItemBuffer {
+            -queue~unique_ptr~Product~~ q
+            +push(item) void
+            +pop() unique_ptr~Product~
+            +clear() void
+            +getSize() int
+        }
+        
+        class Machine {
+            <<abstract>>
+            #int hp
+            #string status
+            #int processingTime
+            #int currentWorkTime
+            #unique_ptr~Product~ currentItem
+            #ItemBuffer inputBuffer
+            #int outputCount
+            #int lostProductsCount
+            +update(tick) void
+            +process()* void
+            +transformItem() void
+            +breakdown() void
+            +getSnapshot() MachineSnapshot
+        }
+        
+        class Ultrafilteration {
+            +process() void
+            +breakdownChance() int
+        }
+        
+        class Dryer {
+            +process() void
+            +breakdownChance() int
+        }
+        
+        class Packaging {
+            +process() void
+            +breakdownChance() int
+        }
+    }
+
+    %% ==========================================
+    %% 5. Product & Recipes (OCP)
+    %% ==========================================
+    namespace Product_Recipes {
+        class RecipeManager {
+            <<Singleton>>
+            -map registry
+            +getInstance() RecipeManager$
+            +registerRecipe(machineName, inputName, transformer) void
+            +transform(machineName, item) unique_ptr~Product~
+        }
+        
+        class Product {
+            <<abstract>>
+            -int id
+            +getId() int
+            +getName()* string
+        }
+        
+        class RawMilk { +getName() string }
+        class LiquidWhey { +getName() string }
+        class WPCPowder { +getName() string }
+    }
+
+    %% ==========================================
+    %% 의존성 및 관계선 (선 꼬임 방지를 위한 최적화)
+    %% ==========================================
+    
+    %% 1. 상속 관계 (위에서 아래로 뻗어나가도록 배치)
+    SimulationObject <|-- Machine : Inherits
+    Machine <|-- Ultrafilteration
+    Machine <|-- Dryer
+    Machine <|-- Packaging
+    Product <|-- RawMilk
+    Product <|-- LiquidWhey
+    Product <|-- WPCPowder
+    IObserver <|-- SimulationLogger : Implements
+
+    %% 2. 소유 및 관리 (Composition & Aggregation)
+    FactorySimulation *-- Machine : Manages
+    Machine *-- ItemBuffer : Owns (inputBuffer)
+    SimulationObject o-- IObserver : Notifies Events
+    ItemBuffer o-- Product : Queues
+
+    %% 3. 참조 및 통신 (Dependencies)
+    FactoryView ..> MachineSnapshot : Reads
+    FactoryView ..> SimulationCommand : Writes
+    FactorySimulation ..> SimulationCommand : Executes Actions
+    Machine ..> MachineSnapshot : Generates
+    FactoryBuilder --> Machine : Instantiates Pipeline
+    Machine --> RecipeManager : Requests Transformation
+    RecipeManager ..> Product : Creates
+
+
