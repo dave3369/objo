@@ -1,0 +1,123 @@
+classDiagram
+    direction TB
+
+    %% ==========================================
+    %% 1. Core Management (파이프라인 생성 및 실행 루프)
+    %% ==========================================
+    namespace Core_Management {
+        class FactorySimulation {
+            -vector~unique_ptr~Machine~~ machines
+            -int finishedGoods
+            -int totalBreakdowns
+            -int itemCounter
+            +start(builtPipeline) void
+            +runTick() void
+            +getMachines() vector~unique_ptr~Machine~~
+            +getTotalLostProducts() int
+        }
+        
+        class FactoryBuilder {
+            -vector~unique_ptr~Machine~~ pipeline
+            +addUltrafiltration(time, initStatus) FactoryBuilder
+            +addDryer(time, initStatus) FactoryBuilder
+            +addPackaging(time, initStatus) FactoryBuilder
+            +buildPipeline() vector~unique_ptr~Machine~~
+        }
+    }
+
+    %% ==========================================
+    %% 2. Factory Machines (공장 기계 도메인)
+    %% ==========================================
+    namespace Factory_Machines {
+        class SimulationObject {
+            <<abstract>>
+            +update(tick)* void
+        }
+        
+        class ItemBuffer {
+            -queue~unique_ptr~Product~~ q
+            +push(item) void
+            +pop() unique_ptr~Product~
+            +clear() void
+            +getSize() int
+        }
+        
+        class Machine {
+            <<abstract>>
+            #int hp
+            #string status
+            #int processingTime
+            #int currentWorkTime
+            #unique_ptr~Product~ currentItem
+            #ItemBuffer inputBuffer
+            #int outputCount
+            #int lostProductsCount
+            +update(tick) void
+            +process()* void
+            +transformItem() void
+            +breakdown() void
+        }
+        
+        class Ultrafilteration {
+            +process() void
+            +breakdownChance() int
+        }
+        
+        class Dryer {
+            +process() void
+            +breakdownChance() int
+        }
+        
+        class Packaging {
+            +process() void
+            +breakdownChance() int
+        }
+    }
+
+    %% ==========================================
+    %% 3. Product & Recipes (아이템과 변환 OCP)
+    %% ==========================================
+    namespace Product_Recipes {
+        class RecipeManager {
+            <<Singleton>>
+            -map registry
+            +getInstance() RecipeManager$
+            +registerRecipe(machineName, inputName, transformer) void
+            +transform(machineName, item) unique_ptr~Product~
+        }
+        
+        class Product {
+            <<abstract>>
+            -int id
+            +getId() int
+            +getName()* string
+        }
+        
+        class RawMilk { +getName() string }
+        class LiquidWhey { +getName() string }
+        class WPCPowder { +getName() string }
+    }
+
+    %% ==========================================
+    %% 의존성 및 관계선 (비즈니스 로직 흐름 최적화)
+    %% ==========================================
+    
+    %% 1. 상속 관계 (다형성의 핵심)
+    SimulationObject <|-- Machine : Inherits
+    Machine <|-- Ultrafilteration
+    Machine <|-- Dryer
+    Machine <|-- Packaging
+    
+    Product <|-- RawMilk
+    Product <|-- LiquidWhey
+    Product <|-- WPCPowder
+
+    %% 2. 소유 및 파이프라인 구성 (객체의 생명주기)
+    FactorySimulation *-- Machine : Manages Pipeline
+    FactoryBuilder --> Machine : Instantiates
+    Machine *-- ItemBuffer : Owns (inputBuffer)
+    ItemBuffer o-- Product : Queues
+
+    %% 3. 제품 변환 흐름 (디커플링된 OCP 적용부)
+    Machine --> RecipeManager : Requests Transformation
+    RecipeManager ..> Product : Creates via TransformerFunc
